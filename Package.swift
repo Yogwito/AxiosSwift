@@ -21,7 +21,8 @@ let package = Package(
         ),
         .target(
             name: "AxiosCore",
-            dependencies: ["CSQLite"]
+            dependencies: ["CSQLite"],
+            resources: [.copy("Recursos/schema.sql")]
         ),
         .executableTarget(
             name: "axios",
