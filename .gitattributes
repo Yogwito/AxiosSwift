@@ -1,0 +1,3 @@
+* text=auto eol=lf
+*.c   linguist-vendored
+*.h   linguist-vendored
