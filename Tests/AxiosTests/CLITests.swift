@@ -3,14 +3,18 @@ import Foundation
 @testable import AxiosCore
 
 final class CLITests: XCTestCase {
-    // Mediodía UTC: la fecha local es la misma en cualquier zona horaria entre UTC-11 y UTC+11.
+    // Fechas a mediodía UTC; la CLI de los tests muestra las fechas en UTC (ver nuevaCLI).
     private let t0 = Date(timeIntervalSince1970: 1_763_467_200) // 2025-11-18 12:00 UTC
     private let t1 = Date(timeIntervalSince1970: 1_764_072_000) // 2025-11-25 12:00 UTC
 
     private func nuevaCLI(traductor: CLI.Traductor? = nil) throws -> (CLI, BaseDatos) {
         let bd = try BaseDatos(ruta: ":memory:")
         bd.reloj = { [t0] in t0 }
-        let cli = CLI(bd: bd, traductor: traductor, raizDatos: try raizRepo().appendingPathComponent("data"))
+        // Zona horaria fija: las fechas mostradas no dependen de la máquina que corre el test.
+        let cli = CLI(
+            bd: bd, traductor: traductor, raizDatos: try raizRepo().appendingPathComponent("data"),
+            zonaHoraria: TimeZone(identifier: "UTC")!
+        )
         return (cli, bd)
     }
 
@@ -51,7 +55,7 @@ final class CLITests: XCTestCase {
 
         bd.reloj = { [t1] in t1 }
         let semana2 = try raizRepo().appendingPathComponent("data").appendingPathComponent("senales_semana2.txt")
-        let carga = cli.ejecutar(["cargar", semana2.path])
+        let carga = cli.ejecutar(["cargar", rutaSistema(semana2)])
         XCTAssertTrue(carga.contains("tipo: senales"), carga)
         XCTAssertTrue(carga.contains("versión: 0.8"), carga)
         XCTAssertTrue(carga.contains("nuevas: 7"), carga)
@@ -66,7 +70,7 @@ final class CLITests: XCTestCase {
 
     func testCargarRutaInexistenteNoCrashea() throws {
         let (cli, _) = try nuevaCLI()
-        let ruta = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).path
+        let ruta = rutaSistema(FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
         let salida = cli.ejecutar(["cargar", ruta])
         XCTAssertTrue(salida.hasPrefix("Error al cargar"), salida)
         XCTAssertTrue(salida.contains("no se encontró el archivo"), salida)
@@ -87,7 +91,7 @@ final class CLITests: XCTestCase {
         _ = cli.ejecutar(["inicializar"])
         bd.reloj = { [t1] in t1 }
         let semana2 = try raizRepo().appendingPathComponent("data").appendingPathComponent("senales_semana2.txt")
-        _ = cli.ejecutar(["cargar", semana2.path])
+        _ = cli.ejecutar(["cargar", rutaSistema(semana2)])
         return cli
     }
 

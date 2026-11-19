@@ -1,10 +1,13 @@
 # AxiosSwift
 
+[![CI](https://github.com/Yogwito/AxiosSwift/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/Yogwito/AxiosSwift/actions/workflows/ci.yml)
+
 Traductor Axios: traduce preguntas a Kethari y Ozh desde la línea de órdenes.
 
 ## Requisitos
 
 - Swift 5.9 o superior en macOS (13+), Windows o Linux.
+- Probado en macOS, Linux y Windows (ver CI).
 - No hace falta instalar SQLite: va embebido en `Sources/CSQLite` (amalgamation 3.54.1).
 
 ## Compilar y probar

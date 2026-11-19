@@ -22,11 +22,20 @@ public struct CLI {
     private let bd: BaseDatos
     private let traductor: Traductor?
     private let raizDatos: URL
+    private let formatoDia: DateFormatter
+    private let formatoMinuto: DateFormatter
 
-    public init(bd: BaseDatos, traductor: Traductor? = nil, raizDatos: URL) {
+    /// - Parameter zonaHoraria: zona en la que se leen y muestran las fechas
+    ///   (la local por defecto; los tests usan una fija para no depender de la máquina).
+    public init(
+        bd: BaseDatos, traductor: Traductor? = nil, raizDatos: URL,
+        zonaHoraria: TimeZone = .current
+    ) {
         self.bd = bd
         self.traductor = traductor
         self.raizDatos = raizDatos
+        formatoDia = CLI.formateador("yyyy-MM-dd", zonaHoraria)
+        formatoMinuto = CLI.formateador("yyyy-MM-dd HH:mm", zonaHoraria)
     }
 
     public func ejecutar(_ args: [String]) -> String {
@@ -133,7 +142,7 @@ public struct CLI {
         case 0:
             break
         case 2 where args[0] == "desde":
-            guard let fecha = CLI.formatoDia.date(from: args[1]) else {
+            guard let fecha = formatoDia.date(from: args[1]) else {
                 return "Fecha no válida: '\(args[1])'. Use el formato AAAA-MM-DD, por ejemplo 2026-11-01."
             }
             desde = fecha
@@ -146,7 +155,7 @@ public struct CLI {
 
         return preguntas.map { p in
             let id = p.id.map { "#\($0)" } ?? "#?"
-            var linea = "\(id)  \(CLI.formatoMinuto.string(from: p.fecha))  \(p.original)"
+            var linea = "\(id)  \(formatoMinuto.string(from: p.fecha))  \(p.original)"
                 + "  →  K: \(p.kethari ?? "—") | O: \(p.ozh ?? "—")"
             if let motivo = p.motivo { linea += "  [\(motivo)]" }
             return linea
@@ -203,8 +212,8 @@ public struct CLI {
             lineas.append("")
             lineas.append("Versiones:")
             for fila in filas {
-                let desde = CLI.formatoDia.string(from: fila.vigenteDesde)
-                let hasta = fila.vigenteHasta.map { CLI.formatoDia.string(from: $0) } ?? "vigente"
+                let desde = formatoDia.string(from: fila.vigenteDesde)
+                let hasta = fila.vigenteHasta.map { formatoDia.string(from: $0) } ?? "vigente"
                 let archivo = fila.archivo.map { "  (\($0))" } ?? ""
                 lineas.append("  \(fila.lengua.rawValue): \(fila.forma) = \(fila.es)  [\(desde) → \(hasta)]\(archivo)")
             }
@@ -241,17 +250,15 @@ public struct CLI {
 
     // MARK: - Utilidades
 
-    private static func formateador(_ formato: String) -> DateFormatter {
+    private static func formateador(_ formato: String, _ zona: TimeZone) -> DateFormatter {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = TimeZone.current
+        f.calendar = Calendar(identifier: .gregorian)
+        f.timeZone = zona
         f.dateFormat = formato
         f.isLenient = false
         return f
     }
-
-    static let formatoDia = formateador("yyyy-MM-dd")
-    static let formatoMinuto = formateador("yyyy-MM-dd HH:mm")
 
     private func describir(_ error: Error) -> String {
         switch error {

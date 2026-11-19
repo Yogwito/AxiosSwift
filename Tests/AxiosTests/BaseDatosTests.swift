@@ -35,15 +35,22 @@ final class BaseDatosTests: XCTestCase {
             .appendingPathComponent(UUID().uuidString)
             .appendingPathExtension("db")
         defer { try? FileManager.default.removeItem(at: url) }
-        let ruta = url.withUnsafeFileSystemRepresentation { String(cString: $0!) }
+        let ruta = rutaSistema(url)
 
+        // Cada conexión vive solo dentro de su bloque: al salir, deinit cierra la BD.
+        // En Windows un archivo abierto no se puede borrar, así que se cierra antes.
         do {
             let bd = try BaseDatos(ruta: ruta)
             try bd.insertarLexico(es: "nave", lengua: .kethari, forma: "kum", categoria: "sustantivo", cargaId: nil)
         }
+        do {
+            let reabierta = try BaseDatos(ruta: ruta)
+            XCTAssertEqual(reabierta.traduccion(es: "nave", lengua: .kethari, en: nil), "kum")
+        }
 
-        let reabierta = try BaseDatos(ruta: ruta)
-        XCTAssertEqual(reabierta.traduccion(es: "nave", lengua: .kethari, en: nil), "kum")
+        // Con las dos conexiones cerradas el borrado debe funcionar en todos los SO.
+        try FileManager.default.removeItem(at: url)
+        XCTAssertFalse((try? url.checkResourceIsReachable()) == true)
     }
 
     // MARK: - Léxico
