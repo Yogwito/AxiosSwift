@@ -12,6 +12,7 @@ kethari|posicion_poseedor|antes
 kethari|posicion_numero|antes
 kethari|base|6
 kethari|separador_numero|-
+kethari|interrogativo_sujeto|sem
 ozh|orden|VSO
 ozh|sujeto_obligatorio|si
 ozh|marca_pasado|ʔoka
@@ -27,3 +28,4 @@ ozh|posicion_poseedor|despues
 ozh|posicion_numero|antes
 ozh|base|10
 ozh|separador_numero|-
+ozh|interrogativo_sujeto|wis

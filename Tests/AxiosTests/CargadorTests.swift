@@ -64,8 +64,8 @@ final class CargadorTests: XCTestCase {
 
         XCTAssertEqual(r.tipo, .reglas)
         XCTAssertEqual(r.errores, [])
-        XCTAssertEqual(r.nuevas, 27)
-        XCTAssertEqual(try bd.contarFilas("regla"), 27)
+        XCTAssertEqual(r.nuevas, 29)
+        XCTAssertEqual(try bd.contarFilas("regla"), 29)
         XCTAssertEqual(bd.regla("particula_pregunta", lengua: .ozh), "mar")
         XCTAssertEqual(bd.regla("base", lengua: .kethari), "6")
     }
@@ -293,7 +293,7 @@ final class CargadorTests: XCTestCase {
 
         let cargas = try bd.registrosCarga()
         XCTAssertEqual(cargas.count, 2)
-        XCTAssertEqual(cargas[0], BaseDatos.RegistroCarga(tipo: "reglas", filas: 27, errores: nil))
+        XCTAssertEqual(cargas[0], BaseDatos.RegistroCarga(tipo: "reglas", filas: 29, errores: nil))
         XCTAssertEqual(cargas[1].tipo, "lexico")
         XCTAssertEqual(cargas[1].filas, 2)
         XCTAssertEqual(cargas[1].errores, "línea 3: falta la palabra en español")
