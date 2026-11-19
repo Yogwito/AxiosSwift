@@ -29,13 +29,19 @@ public struct ResultadoCarga: Equatable {
     public var omitidas: Int
     public var errores: [ErrorLinea]
     public var cargaId: Int64
+    /// Versión del manual detectada en el archivo, si la trae.
+    public var version: String?
 
-    public init(tipo: TipoArchivo, nuevas: Int, omitidas: Int, errores: [ErrorLinea], cargaId: Int64) {
+    public init(
+        tipo: TipoArchivo, nuevas: Int, omitidas: Int, errores: [ErrorLinea], cargaId: Int64,
+        version: String? = nil
+    ) {
         self.tipo = tipo
         self.nuevas = nuevas
         self.omitidas = omitidas
         self.errores = errores
         self.cargaId = cargaId
+        self.version = version
     }
 }
 
@@ -110,7 +116,7 @@ extension BaseDatos {
             )
             return ResultadoCarga(
                 tipo: tipo, nuevas: conteo.nuevas, omitidas: conteo.omitidas,
-                errores: errores, cargaId: cargaId
+                errores: errores, cargaId: cargaId, version: version
             )
         }
     }

@@ -161,4 +161,58 @@ final class BaseDatosTests: XCTestCase {
         XCTAssertTrue(bd.existeForma("kum", lengua: .kethari))
         XCTAssertFalse(bd.existeForma("kum", lengua: .ozh))
     }
+
+    // MARK: - Registro de preguntas
+
+    func testRegistrarYLeerPreguntas() throws {
+        var ahora = t0
+        let bd = try BaseDatos(ruta: ":memory:")
+        bd.reloj = { ahora }
+
+        let primera = RegistroPregunta(
+            fecha: t0, original: "¿Cuado llegan?", normalizada: "cuando llegan ?",
+            correcciones: [Correccion(original: "cuado", corregida: "cuando", distancia: 1)],
+            kethari: "kom vinime ka", ozh: nil, validaK: true, validaO: false,
+            motivo: "sin traducción ozh", traza: "[entrada] ¿Cuado llegan?"
+        )
+        let id1 = try bd.registrar(primera)
+
+        ahora = t1
+        let id2 = try bd.registrar(RegistroPregunta(fecha: t1, original: "segunda"))
+        XCTAssertGreaterThan(id2, id1)
+
+        let todas = bd.preguntas(desde: nil)
+        XCTAssertEqual(todas.count, 2)
+        var esperada = primera
+        esperada.id = id1
+        XCTAssertEqual(todas[0], esperada, "ida y vuelta completa, correcciones incluidas")
+        XCTAssertEqual(todas[1].correcciones, [])
+
+        let desdeT1 = bd.preguntas(desde: t1)
+        XCTAssertEqual(desdeT1.map(\.original), ["segunda"])
+        XCTAssertEqual(bd.preguntas(desde: t2), [])
+    }
+
+    func testHistorialPalabraIncluyeFilasCerradas() throws {
+        var ahora = t0
+        let bd = try BaseDatos(ruta: ":memory:")
+        bd.reloj = { ahora }
+        let carga = try bd.crearCarga(archivo: "lexico_v0.7.txt", tipo: "lexico", version: "0.7")
+        try bd.insertarLexico(es: "tierra", lengua: .kethari, forma: "teka", categoria: "sustantivo", cargaId: carga)
+        try bd.insertarLexico(es: "tierra", lengua: .ozh, forma: "mak", categoria: "sustantivo", cargaId: carga)
+        ahora = t1
+        _ = try bd.corregirSignificado(
+            lengua: .kethari, forma: "teka", anterior: "tierra", nuevo: "territorio reclamado", cargaId: nil
+        )
+
+        let porForma = bd.historialPalabra("teka")
+        XCTAssertEqual(porForma.map(\.es), ["tierra", "territorio reclamado"])
+        XCTAssertEqual(porForma[0].vigenteHasta, t1)
+        XCTAssertEqual(porForma[0].archivo, "lexico_v0.7.txt")
+        XCTAssertNil(porForma[1].vigenteHasta)
+        XCTAssertNil(porForma[1].archivo)
+
+        let porEspanol = bd.historialPalabra("TIERRA")
+        XCTAssertEqual(porEspanol.map(\.lengua), [.kethari, .ozh])
+    }
 }
