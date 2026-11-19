@@ -139,6 +139,25 @@ final class CLITests: XCTestCase {
         XCTAssertFalse(bd.variantes(de: "ir", lengua: .kethari).contains("iresh"), "iresh es palabra propia del léxico")
     }
 
+    // MARK: - validar
+
+    func testValidar() throws {
+        let (cli, _) = try nuevaCLI()
+        _ = cli.ejecutar(["inicializar"])
+
+        let valida = cli.ejecutar(["validar", "kethari", "kom ulesh vinime ka"])
+        XCTAssertTrue(valida.hasPrefix("válida: "), valida)
+        XCTAssertTrue(valida.contains("[INT kom]"), valida)
+
+        let invalida = cli.ejecutar(["validar", "ozh", "lom oruvi ilu"])
+        XCTAssertTrue(invalida.hasPrefix("inválida (columna 5): "), invalida)
+        XCTAssertTrue(invalida.contains("partícula"), invalida)
+
+        XCTAssertTrue(cli.ejecutar(["validar", "klingon", "x"]).hasPrefix("Uso: validar"))
+        XCTAssertTrue(cli.ejecutar(["validar"]).hasPrefix("Uso: validar"))
+        XCTAssertTrue(CLI.ayuda.contains("validar"))
+    }
+
     // MARK: - traducir
 
     func testEtiquetasDeResultado() {

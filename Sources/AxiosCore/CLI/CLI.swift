@@ -13,6 +13,7 @@ public struct CLI {
           inicializar                      carga el léxico, las reglas y las señales de la semana 1
           historial [desde AAAA-MM-DD]     lista lo que se tradujo
           palabra <término>                muestra una palabra en las tres lenguas
+          validar <kethari|ozh> "<frase>"  comprueba si una frase es correcta en esa lengua
         """
 
     /// Archivos que carga `inicializar`, en orden. La semana 2 se carga aparte con `cargar`.
@@ -37,6 +38,7 @@ public struct CLI {
         case "inicializar": return inicializar()
         case "historial": return historial(resto)
         case "palabra": return palabra(resto)
+        case "validar": return validar(resto)
         case "ayuda", "-h", "--help": return CLI.ayuda
         default: return "Orden desconocida: '\(orden)'\n\n" + CLI.ayuda
         }
@@ -149,6 +151,22 @@ public struct CLI {
             if let motivo = p.motivo { linea += "  [\(motivo)]" }
             return linea
         }.joined(separator: "\n")
+    }
+
+    // MARK: - validar
+
+    private func validar(_ args: [String]) -> String {
+        let uso = "Uso: validar <kethari|ozh> \"<frase>\""
+        guard let primero = args.first, let lengua = Lengua(rawValue: primero.lowercased()), lengua != .es else {
+            return uso
+        }
+        let frase = args.dropFirst().joined(separator: " ")
+        let r = lengua == .kethari ? validarKethari(frase, lexicon: bd) : validarOzh(frase, lexicon: bd)
+        if r.valida {
+            return "válida: \(r.estructura ?? "")"
+        }
+        let donde = r.columna.map { " (columna \($0))" } ?? ""
+        return "inválida\(donde): \(r.motivo ?? "sin motivo")"
     }
 
     // MARK: - palabra
