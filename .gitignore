@@ -1,5 +1,5 @@
 .build/
 .swiftpm/
-*.xcodeproj
-Package.resolved
+*.db
 .DS_Store
+xcuserdata/

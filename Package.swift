@@ -3,8 +3,11 @@ import PackageDescription
 
 let package = Package(
     name: "AxiosSwift",
+    platforms: [
+        .macOS(.v13),
+    ],
     products: [
-        .library(name: "AxiosCore", targets: ["AxiosCore"]),
+        .executable(name: "axios", targets: ["axios"]),
     ],
     targets: [
         // SQLite amalgamation (sqlite.org) compilada como target C para que
@@ -20,8 +23,12 @@ let package = Package(
             name: "AxiosCore",
             dependencies: ["CSQLite"]
         ),
+        .executableTarget(
+            name: "axios",
+            dependencies: ["AxiosCore"]
+        ),
         .testTarget(
-            name: "EsqueletoTests",
+            name: "AxiosTests",
             dependencies: ["AxiosCore", "CSQLite"]
         ),
     ]
