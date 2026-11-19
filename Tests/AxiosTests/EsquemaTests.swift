@@ -46,22 +46,9 @@ final class EsquemaTests: XCTestCase {
         return nombres
     }
 
-    /// Raíz del repositorio: sube desde este archivo hasta encontrar Package.swift.
-    private func raizRepo() throws -> URL {
-        var dir = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
-        while !FileManager.default.fileExists(atPath: dir.appendingPathComponent("Package.swift").path) {
-            let padre = dir.deletingLastPathComponent()
-            guard padre.path != dir.path else {
-                throw XCTSkip("No se encontró Package.swift subiendo desde \(#filePath)")
-            }
-            dir = padre
-        }
-        return dir
-    }
-
     /// Filas de datos de un archivo "|": sin líneas vacías ni comentarios "#".
     private func filasDatos(_ nombre: String) throws -> [[String]] {
-        let url = try raizRepo().appendingPathComponent("data").appendingPathComponent(nombre)
+        let url = try archivoDatos(nombre)
         let contenido = try String(contentsOf: url, encoding: .utf8)
         return contenido
             .split(separator: "\n", omittingEmptySubsequences: false)

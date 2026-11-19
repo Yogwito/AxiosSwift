@@ -119,21 +119,26 @@ public final class BaseDatos: Lexicon {
 
     // MARK: - Escritura: léxico
 
-    /// Inserta una traducción vigente desde `reloj()`. Si ya hay una fila vigente
-    /// con la misma clave, lengua y forma no hace nada.
+    /// Inserta una traducción vigente desde `reloj()`. Si ya existe cualquier fila
+    /// (vigente o cerrada) con la misma clave, lengua y forma no hace nada: cargar el
+    /// manual solo agrega lo que no se conoce, y un significado cerrado por una
+    /// corrección no vuelve al recargar. Cambiar un significado solo se hace con
+    /// `corregirSignificado`, que no pasa por esta comprobación.
+    /// - Returns: `true` si insertó una fila, `false` si ya se conocía.
+    @discardableResult
     public func insertarLexico(
         es: String, lengua: Lengua, forma: String, categoria: String?, cargaId: Int64?
-    ) throws {
+    ) throws -> Bool {
         let claveEs = BaseDatos.clave(es)
         let existe = try consultar(
             """
             SELECT 1 FROM lexico
-            WHERE es_clave = ? AND lengua = ? AND forma = ? AND vigente_hasta IS NULL
+            WHERE es_clave = ? AND lengua = ? AND forma = ?
             LIMIT 1
             """,
             [.texto(claveEs), .texto(lengua.rawValue), .texto(forma)]
         ) { _ in true }
-        guard existe.isEmpty else { return }
+        guard existe.isEmpty else { return false }
 
         try ejecutar(
             """
@@ -145,20 +150,23 @@ public final class BaseDatos: Lexicon {
                 .textoOpcional(categoria), .enteroOpcional(cargaId), .real(ahora()),
             ]
         )
+        return true
     }
 
     // MARK: - Escritura: reglas
 
     /// Fija el valor vigente de una regla. Si ya vale lo mismo no hace nada;
     /// si valía otra cosa cierra la fila anterior e inserta la nueva.
-    public func insertarRegla(lengua: Lengua, clave: String, valor: String, cargaId: Int64?) throws {
+    /// - Returns: `true` si insertó una fila, `false` si ya estaba vigente con ese valor.
+    @discardableResult
+    public func insertarRegla(lengua: Lengua, clave: String, valor: String, cargaId: Int64?) throws -> Bool {
         try transaccion {
             let vigentes = try consultar(
                 "SELECT id, valor FROM regla WHERE lengua = ? AND clave = ? AND vigente_hasta IS NULL",
                 [.texto(lengua.rawValue), .texto(clave)]
             ) { fila in (id: entero(fila, 0), valor: texto(fila, 1)) }
 
-            if vigentes.contains(where: { $0.valor == valor }) { return }
+            if vigentes.contains(where: { $0.valor == valor }) { return false }
 
             let momento = ahora()
             for anterior in vigentes {
@@ -177,7 +185,52 @@ public final class BaseDatos: Lexicon {
                     .enteroOpcional(cargaId), .real(momento),
                 ]
             )
+            return true
         }
+    }
+
+    // MARK: - Escritura: señales y vocabulario
+
+    /// Guarda una señal y sus palabras (en `senal_palabra`, con posición desde 1).
+    /// - Returns: `true` si la señal es nueva, `false` si ya existía (mismo día, voz y transcripción).
+    @discardableResult
+    public func insertarSenal(
+        dia: Int, voz: String, transcripcion: String, salida: String?, cargaId: Int64?
+    ) throws -> Bool {
+        try transaccion {
+            try ejecutar(
+                """
+                INSERT OR IGNORE INTO senal (dia, voz, transcripcion, salida, carga_id)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                [
+                    .entero(Int64(dia)), .texto(voz), .texto(transcripcion),
+                    .textoOpcional(salida), .enteroOpcional(cargaId),
+                ]
+            )
+            guard sqlite3_changes(db) > 0 else { return false }
+
+            let senalId = sqlite3_last_insert_rowid(db)
+            let palabras = transcripcion.split(whereSeparator: { $0.isWhitespace })
+            for (i, palabra) in palabras.enumerated() {
+                try ejecutar(
+                    "INSERT INTO senal_palabra (senal_id, posicion, forma) VALUES (?, ?, ?)",
+                    [.entero(senalId), .entero(Int64(i + 1)), .texto(String(palabra))]
+                )
+            }
+            return true
+        }
+    }
+
+    /// Agrega una forma al vocabulario español. Si ya existe (misma forma y categoría) no hace nada.
+    /// - Returns: `true` si insertó una fila.
+    @discardableResult
+    public func insertarVocab(forma: String, lema: String?, categoria: String?, rasgos: String?) throws -> Bool {
+        try ejecutar(
+            "INSERT OR IGNORE INTO vocab_es (forma, lema, categoria, rasgos) VALUES (?, ?, ?, ?)",
+            [.texto(forma), .textoOpcional(lema), .textoOpcional(categoria), .textoOpcional(rasgos)]
+        )
+        return sqlite3_changes(db) > 0
     }
 
     // MARK: - Escritura: correcciones del manual
@@ -324,7 +377,79 @@ public final class BaseDatos: Lexicon {
         return palabras
     }
 
+    // MARK: - Lectura de señales
+
+    public struct Senal: Equatable {
+        public var id: Int64
+        public var dia: Int
+        public var voz: String
+        public var transcripcion: String
+        public var salida: String?
+
+        public init(id: Int64, dia: Int, voz: String, transcripcion: String, salida: String?) {
+            self.id = id
+            self.dia = dia
+            self.voz = voz
+            self.transcripcion = transcripcion
+            self.salida = salida
+        }
+    }
+
+    /// Señales cuya transcripción contiene la palabra `forma`, ordenadas por día.
+    public func senales(conPalabra forma: String) -> [Senal] {
+        let filas = try? consultar(
+            """
+            SELECT DISTINCT s.id, s.dia, s.voz, s.transcripcion, s.salida
+            FROM senal s JOIN senal_palabra p ON p.senal_id = s.id
+            WHERE p.forma = ?
+            ORDER BY s.dia, s.id
+            """,
+            [.texto(forma)]
+        ) { fila in
+            Senal(
+                id: entero(fila, 0), dia: Int(entero(fila, 1)), voz: texto(fila, 2),
+                transcripcion: texto(fila, 3), salida: textoOpcional(fila, 4)
+            )
+        }
+        return filas ?? []
+    }
+
     // MARK: - Utilidades para tests
+
+    /// Filas del léxico (vigentes o no) de una lengua.
+    func contarLexico(lengua: Lengua) throws -> Int {
+        try consultar("SELECT COUNT(*) FROM lexico WHERE lengua = ?", [.texto(lengua.rawValue)]) { fila in
+            Int(entero(fila, 0))
+        }.first ?? 0
+    }
+
+    struct RegistroCarga: Equatable {
+        var tipo: String
+        var filas: Int
+        var errores: String?
+    }
+
+    /// Versión del manual de cada carga, en orden de inserción.
+    func versionesCarga() throws -> [String?] {
+        try consultar("SELECT version_manual FROM carga ORDER BY id", []) { fila in textoOpcional(fila, 0) }
+    }
+
+    /// Todas las señales ordenadas por día e id.
+    func todasLasSenales() throws -> [Senal] {
+        try consultar("SELECT id, dia, voz, transcripcion, salida FROM senal ORDER BY dia, id", []) { fila in
+            Senal(
+                id: entero(fila, 0), dia: Int(entero(fila, 1)), voz: texto(fila, 2),
+                transcripcion: texto(fila, 3), salida: textoOpcional(fila, 4)
+            )
+        }
+    }
+
+    /// Filas de la tabla `carga` en orden de inserción.
+    func registrosCarga() throws -> [RegistroCarga] {
+        try consultar("SELECT tipo, filas, errores FROM carga ORDER BY id", []) { fila in
+            RegistroCarga(tipo: texto(fila, 0), filas: Int(entero(fila, 1)), errores: textoOpcional(fila, 2))
+        }
+    }
 
     /// Número de filas de una tabla del esquema.
     func contarFilas(_ tabla: String) throws -> Int {
