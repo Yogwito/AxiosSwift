@@ -1,5 +1,13 @@
 name: CI
 
+# Por qué las versiones están fijas:
+# - "runs-on: *-latest" cambia de imagen sin aviso cuando GitHub publica una nueva
+#   (ubuntu-latest pasó a 26.04 y rompió setup-swift). Cada job usa una imagen fija.
+# - El toolchain de Swift también va fijo (6.4.2): en Windows, un toolchain viejo con el
+#   Windows SDK de una imagen nueva no compila ni los módulos del sistema (6.0.3 falló con
+#   'SwiftUCRT.h' not found). Con versiones fijas un fallo del CI es un cambio nuestro.
+# Para actualizar: cambiar la imagen o la versión aquí, en un PR propio, y ver el CI en verde.
+
 on:
   push:
     branches: [develop, main]
@@ -15,34 +23,15 @@ permissions:
   contents: read
 
 jobs:
-  build-test:
-    name: build y tests (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
+  macos:
+    name: macOS (Swift de Xcode)
+    # macos-26: imagen estable actual (arm64). Se usa el Swift del Xcode que trae,
+    # sin instalar nada.
+    runs-on: macos-26
     timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
-
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-
-      # macOS usa el Swift del Xcode que trae el runner: no se instala nada.
-
-      - name: Instalar Swift 6.0 (Linux)
-        if: runner.os == 'Linux'
-        uses: swift-actions/setup-swift@v2.4.0
-        with:
-          swift-version: "6.0"
-
-      - name: Instalar Swift 6.0.3 (Windows)
-        if: runner.os == 'Windows'
-        uses: compnerd/gha-setup-swift@v0.5.1
-        with:
-          swift-version: swift-6.0.3-release
-          swift-build: 6.0.3-RELEASE
-          update-sdk-modules: true
 
       - name: Versión de Swift
         run: swift --version
@@ -53,8 +42,7 @@ jobs:
       - name: Tests
         run: swift test
 
-      - name: Prueba de humo de la CLI (macOS y Linux)
-        if: runner.os != 'Windows'
+      - name: Prueba de humo de la CLI
         shell: bash
         run: |
           set -euo pipefail
@@ -71,9 +59,79 @@ jobs:
           echo "$palabra"
           grep -q "territorio reclamado" <<< "$palabra"
 
-      - name: Prueba de humo de la CLI (Windows)
-        if: runner.os == 'Windows'
+  linux:
+    name: Linux (contenedor swift:6.4.2-noble)
+    # El host va fijo en ubuntu-24.04, pero Swift no se instala en él: el job corre
+    # dentro de la imagen oficial de Docker Hub (Ubuntu 24.04 "noble" con Swift 6.4.2),
+    # así no dependemos de que una action soporte la versión de Ubuntu del runner.
+    runs-on: ubuntu-24.04
+    container:
+      image: swift:6.4.2-noble
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Versión de Swift
+        run: swift --version
+
+      - name: Compilar
+        run: swift build
+
+      - name: Tests
+        run: swift test
+
+      - name: Prueba de humo de la CLI
+        run: |
+          set -euo pipefail
+          # Dentro del contenedor RUNNER_TEMP suele existir; si no, se usa /tmp.
+          export AXIOS_DB="${RUNNER_TEMP:-/tmp}/axios.db"
+          rm -f "$AXIOS_DB"
+
+          swift run axios inicializar
+
+          carga="$(swift run axios cargar data/senales_semana2.txt)"
+          echo "$carga"
+          grep -q "nuevas: 7" <<< "$carga"
+
+          palabra="$(swift run axios palabra teka)"
+          echo "$palabra"
+          grep -q "territorio reclamado" <<< "$palabra"
+
+  windows:
+    name: Windows (Swift 6.4.2)
+    # windows-2022 (Visual Studio 2022) fijo; Swift 6.4.2 es la última versión estable
+    # publicada en swift.org para Windows. No se usa update-sdk-modules: la action lo
+    # deja desactivado por defecto y descarga module maps de otra versión de Swift,
+    # que es justo lo que rompió la compilación con 6.0.3.
+    runs-on: windows-2022
+    timeout-minutes: 30
+    defaults:
+      run:
         shell: pwsh
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Instalar Swift 6.4.2
+        uses: compnerd/gha-setup-swift@v0.5.1
+        with:
+          swift-version: swift-6.4.2-release
+          swift-build: 6.4.2-RELEASE
+
+      - name: Versión de Swift
+        run: swift --version
+
+      - name: Compilar
+        run: swift build
+
+      - name: Tests
+        run: swift test
+
+      - name: Prueba de humo de la CLI
         run: |
           $ErrorActionPreference = 'Stop'
           [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
