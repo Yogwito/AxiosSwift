@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    name: build y tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # macOS usa el Swift del Xcode que trae el runner: no se instala nada.
+
+      - name: Instalar Swift 6.0 (Linux)
+        if: runner.os == 'Linux'
+        uses: swift-actions/setup-swift@v2.4.0
+        with:
+          swift-version: "6.0"
+
+      - name: Instalar Swift 6.0.3 (Windows)
+        if: runner.os == 'Windows'
+        uses: compnerd/gha-setup-swift@v0.5.1
+        with:
+          swift-version: swift-6.0.3-release
+          swift-build: 6.0.3-RELEASE
+          update-sdk-modules: true
+
+      - name: Versión de Swift
+        run: swift --version
+
+      - name: Compilar
+        run: swift build
+
+      - name: Tests
+        run: swift test
+
+      - name: Prueba de humo de la CLI (macOS y Linux)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          export AXIOS_DB="$RUNNER_TEMP/axios.db"
+          rm -f "$AXIOS_DB"
+
+          swift run axios inicializar
+
+          carga="$(swift run axios cargar data/senales_semana2.txt)"
+          echo "$carga"
+          grep -q "nuevas: 7" <<< "$carga"
+
+          palabra="$(swift run axios palabra teka)"
+          echo "$palabra"
+          grep -q "territorio reclamado" <<< "$palabra"
+
+      - name: Prueba de humo de la CLI (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          $OutputEncoding = [System.Text.Encoding]::UTF8
+          $env:AXIOS_DB = Join-Path $env:RUNNER_TEMP 'axios.db'
+          Remove-Item $env:AXIOS_DB -ErrorAction SilentlyContinue
+
+          swift run axios inicializar
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          $semana2 = Join-Path 'data' 'senales_semana2.txt'
+          $carga = swift run axios cargar $semana2 | Out-String
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Write-Output $carga
+          if ($carga -notmatch 'nuevas: 7') { throw 'La carga de la semana 2 no reportó 7 filas nuevas' }
+
+          $palabra = swift run axios palabra teka | Out-String
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Write-Output $palabra
+          if ($palabra -notmatch 'territorio reclamado') { throw 'palabra teka no muestra la corrección' }
