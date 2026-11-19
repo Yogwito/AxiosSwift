@@ -414,6 +414,169 @@ public final class BaseDatos: Lexicon {
         return filas ?? []
     }
 
+    /// Formas con las que `forma` puede aparecer en una señal de `lengua`, armadas con
+    /// las reglas vigentes: la forma, la forma con cada sufijo (plural, pasado, futuro)
+    /// y todas ellas con el prefijo de negación. Solo se usan las reglas que existen
+    /// para esa lengua. Una variante que ya es una palabra propia del léxico pertenece
+    /// a esa palabra y se descarta.
+    func variantes(de forma: String, lengua: Lengua) -> [String] {
+        func valor(_ clave: String) -> String? {
+            guard let v = regla(clave, lengua: lengua), !v.isEmpty else { return nil }
+            return v
+        }
+        var base = [forma]
+        for clave in ["sufijo_plural", "sufijo_pasado", "sufijo_futuro"] {
+            if let sufijo = valor(clave) { base.append(forma + sufijo) }
+        }
+        var todas = base
+        if let prefijo = valor("prefijo_negacion") {
+            todas += base.map { prefijo + $0 }
+        }
+
+        var resultado: [String] = []
+        for variante in todas where !resultado.contains(variante) {
+            if variante != forma && existeForma(variante, lengua: lengua) { continue }
+            resultado.append(variante)
+        }
+        return resultado
+    }
+
+    /// Señales de `lengua` que contienen exactamente `forma` o alguna de sus
+    /// variantes (ver `variantes(de:lengua:)`), ordenadas por día.
+    public func senales(conForma forma: String, lengua: Lengua) -> [Senal] {
+        guard !forma.isEmpty, lengua != .es else { return [] }
+        let variantes = variantes(de: forma, lengua: lengua)
+        let marcadores = Array(repeating: "?", count: variantes.count).joined(separator: ", ")
+        let filas = try? consultar(
+            """
+            SELECT DISTINCT s.id, s.dia, s.voz, s.transcripcion, s.salida
+            FROM senal s JOIN senal_palabra p ON p.senal_id = s.id
+            WHERE s.voz = ? AND p.forma IN (\(marcadores))
+            ORDER BY s.dia, s.id
+            """,
+            [.texto(lengua.rawValue)] + variantes.map(Valor.texto)
+        ) { fila in
+            Senal(
+                id: entero(fila, 0), dia: Int(entero(fila, 1)), voz: texto(fila, 2),
+                transcripcion: texto(fila, 3), salida: textoOpcional(fila, 4)
+            )
+        }
+        return filas ?? []
+    }
+
+    // MARK: - Registro de preguntas
+
+    /// Guarda una pregunta traducida (o rechazada) en el historial.
+    /// - Returns: el id asignado.
+    @discardableResult
+    public func registrar(_ r: RegistroPregunta) throws -> Int64 {
+        let json: String
+        do {
+            json = String(decoding: try JSONEncoder().encode(r.correcciones), as: UTF8.self)
+        } catch {
+            throw ErrorBD.sql("no se pudieron codificar las correcciones: \(error)")
+        }
+        try ejecutar(
+            """
+            INSERT INTO pregunta
+              (fecha, original, normalizada, correcciones_json, kethari, ozh,
+               valida_k, valida_o, motivo, traza)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                .real(r.fecha.timeIntervalSince1970), .texto(r.original), .textoOpcional(r.normalizada),
+                .texto(json), .textoOpcional(r.kethari), .textoOpcional(r.ozh),
+                .entero(r.validaK ? 1 : 0), .entero(r.validaO ? 1 : 0),
+                .textoOpcional(r.motivo), .textoOpcional(r.traza),
+            ]
+        )
+        return sqlite3_last_insert_rowid(db)
+    }
+
+    /// Preguntas registradas desde `desde` (incluida), o todas si es nil, por fecha e id.
+    public func preguntas(desde: Date?) -> [RegistroPregunta] {
+        let filtro = desde.map { ("WHERE fecha >= ?", [Valor.real($0.timeIntervalSince1970)]) } ?? ("", [])
+        let filas = try? consultar(
+            """
+            SELECT id, fecha, original, normalizada, correcciones_json, kethari, ozh,
+                   valida_k, valida_o, motivo, traza
+            FROM pregunta \(filtro.0)
+            ORDER BY fecha, id
+            """,
+            filtro.1
+        ) { fila -> RegistroPregunta in
+            let correcciones = (try? JSONDecoder().decode(
+                [Correccion].self, from: Data(texto(fila, 4).utf8)
+            )) ?? []
+            return RegistroPregunta(
+                id: entero(fila, 0),
+                fecha: Date(timeIntervalSince1970: real(fila, 1)),
+                original: texto(fila, 2),
+                normalizada: textoOpcional(fila, 3),
+                correcciones: correcciones,
+                kethari: textoOpcional(fila, 5),
+                ozh: textoOpcional(fila, 6),
+                validaK: entero(fila, 7) != 0,
+                validaO: entero(fila, 8) != 0,
+                motivo: textoOpcional(fila, 9),
+                traza: textoOpcional(fila, 10)
+            )
+        }
+        return filas ?? []
+    }
+
+    // MARK: - Historial de una palabra
+
+    public struct FilaLexico: Equatable {
+        public var es: String
+        public var lengua: Lengua
+        public var forma: String
+        public var categoria: String?
+        public var vigenteDesde: Date
+        public var vigenteHasta: Date?
+        /// Archivo de la carga que trajo la fila (`carga.archivo`).
+        public var archivo: String?
+
+        public init(
+            es: String, lengua: Lengua, forma: String, categoria: String?,
+            vigenteDesde: Date, vigenteHasta: Date?, archivo: String?
+        ) {
+            self.es = es
+            self.lengua = lengua
+            self.forma = forma
+            self.categoria = categoria
+            self.vigenteDesde = vigenteDesde
+            self.vigenteHasta = vigenteHasta
+            self.archivo = archivo
+        }
+    }
+
+    /// Todas las filas del léxico (vigentes y cerradas) en las que `termino` es la
+    /// palabra española o la forma alienígena, ordenadas por lengua y fecha.
+    public func historialPalabra(_ termino: String) -> [FilaLexico] {
+        let filas = try? consultar(
+            """
+            SELECT l.es, l.lengua, l.forma, l.categoria, l.vigente_desde, l.vigente_hasta, c.archivo
+            FROM lexico l LEFT JOIN carga c ON c.id = l.carga_id
+            WHERE l.es_clave = ? OR l.forma = ?
+            ORDER BY l.lengua, l.vigente_desde, l.id
+            """,
+            [.texto(BaseDatos.clave(termino)), .texto(termino)]
+        ) { fila -> FilaLexico? in
+            guard let lengua = Lengua(rawValue: texto(fila, 1)) else { return nil }
+            return FilaLexico(
+                es: texto(fila, 0),
+                lengua: lengua,
+                forma: texto(fila, 2),
+                categoria: textoOpcional(fila, 3),
+                vigenteDesde: Date(timeIntervalSince1970: real(fila, 4)),
+                vigenteHasta: realOpcional(fila, 5).map(Date.init(timeIntervalSince1970:)),
+                archivo: textoOpcional(fila, 6)
+            )
+        }
+        return (filas ?? []).compactMap { $0 }
+    }
+
     // MARK: - Utilidades para tests
 
     /// Filas del léxico (vigentes o no) de una lengua.
@@ -558,4 +721,12 @@ private func textoOpcional(_ stmt: OpaquePointer, _ columna: Int32) -> String? {
 
 private func entero(_ stmt: OpaquePointer, _ columna: Int32) -> Int64 {
     sqlite3_column_int64(stmt, columna)
+}
+
+private func real(_ stmt: OpaquePointer, _ columna: Int32) -> Double {
+    sqlite3_column_double(stmt, columna)
+}
+
+private func realOpcional(_ stmt: OpaquePointer, _ columna: Int32) -> Double? {
+    sqlite3_column_type(stmt, columna) == SQLITE_NULL ? nil : sqlite3_column_double(stmt, columna)
 }
