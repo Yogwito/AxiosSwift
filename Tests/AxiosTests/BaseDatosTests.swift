@@ -59,8 +59,8 @@ final class BaseDatosTests: XCTestCase {
 
     func testInsertarDosVecesDejaUnaFila() throws {
         let bd = try nuevaBD(en: t0)
-        try bd.insertarLexico(es: "nave", lengua: .kethari, forma: "kum", categoria: "sustantivo", cargaId: nil)
-        try bd.insertarLexico(es: "nave", lengua: .kethari, forma: "kum", categoria: "sustantivo", cargaId: nil)
+        XCTAssertTrue(try bd.insertarLexico(es: "nave", lengua: .kethari, forma: "kum", categoria: "sustantivo", cargaId: nil))
+        XCTAssertFalse(try bd.insertarLexico(es: "nave", lengua: .kethari, forma: "kum", categoria: "sustantivo", cargaId: nil))
         XCTAssertEqual(try bd.contarFilas("lexico"), 1)
     }
 
@@ -128,14 +128,14 @@ final class BaseDatosTests: XCTestCase {
         let bd = try BaseDatos(ruta: ":memory:")
         bd.reloj = { ahora }
 
-        try bd.insertarRegla(lengua: .kethari, clave: "base", valor: "6", cargaId: nil)
+        XCTAssertTrue(try bd.insertarRegla(lengua: .kethari, clave: "base", valor: "6", cargaId: nil))
         XCTAssertEqual(bd.regla("base", lengua: .kethari), "6")
 
-        try bd.insertarRegla(lengua: .kethari, clave: "base", valor: "6", cargaId: nil)
+        XCTAssertFalse(try bd.insertarRegla(lengua: .kethari, clave: "base", valor: "6", cargaId: nil))
         XCTAssertEqual(try bd.contarFilas("regla"), 1)
 
         ahora = t1
-        try bd.insertarRegla(lengua: .kethari, clave: "base", valor: "8", cargaId: nil)
+        XCTAssertTrue(try bd.insertarRegla(lengua: .kethari, clave: "base", valor: "8", cargaId: nil))
         XCTAssertEqual(bd.regla("base", lengua: .kethari), "8")
         XCTAssertEqual(try bd.contarFilas("regla"), 2)
         XCTAssertNil(bd.regla("base", lengua: .ozh))
