@@ -22,6 +22,8 @@ swift run axios traducir "¿Cuándo llegan?" --traza   # traduce y muestra cada 
 swift run axios cargar data/senales_semana2.txt      # carga señales y correcciones sin recompilar
 swift run axios palabra teka                         # la palabra en las tres lenguas, sus versiones y señales
 swift run axios historial desde 2026-11-01           # lo traducido desde esa fecha
+swift run axios validar kethari "kom ulesh vinime ka"  # comprueba la gramática de una frase
+swift run axios validar ozh "ʔasur mar shavi wem"
 ```
 
 `swift run axios` sin argumentos (o `ayuda`) muestra todas las órdenes.

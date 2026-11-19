@@ -77,6 +77,9 @@ public protocol Lexicon {
     func regla(_ clave: String, lengua: Lengua) -> String?
     /// Todas las palabras en español conocidas, para la corrección ortográfica.
     func vocabularioEspanol() -> Set<String>
+    /// Categoría vigente (pronombre, sustantivo, verbo, interrogativo, numero...)
+    /// de una forma de `lengua`, o nil si la forma no está en el léxico.
+    func categoria(forma: String, lengua: Lengua) -> String?
 }
 
 // MARK: - Traza

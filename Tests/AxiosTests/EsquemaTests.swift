@@ -98,9 +98,9 @@ final class EsquemaTests: XCTestCase {
         }
     }
 
-    func testReglasV07Tiene27FilasDeTresCampos() throws {
+    func testReglasV07Tiene29FilasDeTresCampos() throws {
         let filas = try filasDatos("reglas_v0.7.txt")
-        XCTAssertEqual(filas.count, 27)
+        XCTAssertEqual(filas.count, 29)
         for (i, fila) in filas.enumerated() {
             XCTAssertEqual(fila.count, 3, "fila \(i + 1): \(fila)")
         }
