@@ -333,6 +333,23 @@ public final class BaseDatos: Lexicon {
         return filas ?? []
     }
 
+    /// Categoría vigente de `forma` en `lengua`. Para `.es` busca por la clave española.
+    public func categoria(forma: String, lengua: Lengua) -> String? {
+        let (sql, valores): (String, [Valor]) = lengua == .es
+            ? ("es_clave = ?", [.texto(BaseDatos.clave(forma))])
+            : ("forma = ? AND lengua = ?", [.texto(forma), .texto(lengua.rawValue)])
+        let filas = try? consultar(
+            """
+            SELECT categoria FROM lexico
+            WHERE \(sql) AND vigente_hasta IS NULL AND categoria IS NOT NULL
+            ORDER BY vigente_desde DESC, id DESC
+            LIMIT 1
+            """,
+            valores
+        ) { fila in texto(fila, 0) }
+        return filas?.first
+    }
+
     /// Indica si `forma` es hoy una palabra válida de `lengua`.
     public func existeForma(_ forma: String, lengua: Lengua) -> Bool {
         let filas = try? consultar(
