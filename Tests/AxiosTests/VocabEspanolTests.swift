@@ -83,16 +83,16 @@ final class VocabEspanolTests: XCTestCase {
         XCTAssertEqual(r.version, "0.7")
         XCTAssertEqual(r.errores, [])
         XCTAssertEqual(r.omitidas, 0)
-        XCTAssertEqual(r.nuevas, 95)
-        XCTAssertEqual(try bd.contarFilas("vocab_es"), 95)
+        XCTAssertEqual(r.nuevas, 98)
+        XCTAssertEqual(try bd.contarFilas("vocab_es"), 98)
     }
 
     func testRecargarVocabEsEsIdempotente() throws {
         let bd = try bdConVocabulario()
         let r = try bd.cargar(archivo: archivoDatos("vocab_es_v0.7.txt"))
         XCTAssertEqual(r.nuevas, 0)
-        XCTAssertEqual(r.omitidas, 95)
-        XCTAssertEqual(try bd.contarFilas("vocab_es"), 95)
+        XCTAssertEqual(r.omitidas, 98)
+        XCTAssertEqual(try bd.contarFilas("vocab_es"), 98)
     }
 
     func testEntradasEspanolIgnoraTildes() throws {
@@ -156,23 +156,25 @@ final class VocabEspanolTests: XCTestCase {
         }
     }
 
-    /// Todo lema verbal (de raíces irregulares y formas supletivas) es un verbo
-    /// conocido: está en el léxico como verbo o en vocab_es como infinitivo.
+    /// Todo lema verbal (de raíces irregulares o excluidas y de formas supletivas) es
+    /// un verbo conocido: está en el léxico como verbo o en vocab_es como infinitivo.
     func testLosLemasVerbalesSonVerbosConocidos() throws {
         let bd = try bdConVocabulario()
         func esVerbo(_ lema: String) -> Bool {
             bd.categoria(forma: lema, lengua: .es) == "verbo"
                 || bd.entradasEspanol(forma: lema).contains { $0.categoria == "infinitivo" }
         }
-        let verbales = try filasDelArchivo().filter { ["verbo", "raiz_irregular"].contains($0.categoria ?? "") }
-        XCTAssertEqual(verbales.count, 32)
+        let verbales = try filasDelArchivo().filter {
+            ["verbo", "raiz_irregular", "raiz_excluida"].contains($0.categoria ?? "")
+        }
+        XCTAssertEqual(verbales.count, 35)
         for fila in verbales {
             XCTAssertNotNil(Tiempo(rawValue: fila.rasgos["t"] ?? ""), fila.forma)
             for lema in fila.lemas {
                 XCTAssertTrue(esVerbo(lema), "\(fila.forma) → \(lema)")
             }
         }
-        for raiz in verbales where raiz.categoria == "raiz_irregular" {
+        for raiz in verbales where raiz.categoria != "verbo" {
             XCTAssertTrue(raiz.forma.hasSuffix("-"), raiz.forma)
         }
     }

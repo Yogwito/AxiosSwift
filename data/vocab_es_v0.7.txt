@@ -56,6 +56,13 @@ llegu-|llegar|raiz_irregular|t=pasado
 vendr-|venir|raiz_irregular|t=futuro
 querr-|querer|raiz_irregular|t=futuro
 
+# --- Raíces regulares excluidas: el verbo usa otra raíz en ese tiempo ------------
+# Sin estas filas "venimos" y "estamos" también se leerían como pasado (ven-imos,
+# est-amos), pero el pasado de venir y estar es "vinimos" y "estuvimos".
+ven-|venir|raiz_excluida|t=pasado
+est-|estar|raiz_excluida|t=pasado
+quer-|querer|raiz_excluida|t=pasado
+
 # --- Formas supletivas: la forma completa no se deja partir ----------------------
 soy|ser|verbo|p=1;n=sg;t=presente
 eres|ser|verbo|p=2;n=sg;t=presente
