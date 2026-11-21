@@ -152,6 +152,56 @@ final class MorfologiaTests: XCTestCase {
         XCTAssertEqual(lecturas("llegar"), [])
     }
 
+    // MARK: - Infinitivos
+
+    func testInfinitivosConocidos() {
+        XCTAssertEqual(morfologia.infinitivo("llegar"), "llegar")
+        XCTAssertEqual(morfologia.infinitivo("ir"), "ir", "ir no está en el léxico pero sí en vocab_es")
+        XCTAssertEqual(morfologia.infinitivo("VENIR"), "venir")
+        XCTAssertNil(morfologia.infinitivo("llegan"))
+        XCTAssertNil(morfologia.infinitivo("caminar"))
+        XCTAssertNil(morfologia.infinitivo("nave"))
+    }
+
+    // MARK: - Sustantivos
+
+    func testPluralDeSustantivos() {
+        XCTAssertEqual(morfologia.analizarSustantivo("naves"), [AnalisisNominal(lema: "nave", plural: true)])
+        XCTAssertEqual(morfologia.analizarSustantivo("mensajes"), [AnalisisNominal(lema: "mensaje", plural: true)])
+        XCTAssertEqual(morfologia.analizarSustantivo("hogares"), [AnalisisNominal(lema: "hogar", plural: true)])
+        XCTAssertEqual(morfologia.analizarSustantivo("luces"), [AnalisisNominal(lema: "luz", plural: true)])
+        XCTAssertEqual(morfologia.analizarSustantivo("años"), [AnalisisNominal(lema: "año", plural: true)])
+    }
+
+    func testSingularDeSustantivos() {
+        XCTAssertEqual(morfologia.analizarSustantivo("paz"), [AnalisisNominal(lema: "paz", plural: false)])
+        XCTAssertEqual(morfologia.analizarSustantivo("Planeta"), [AnalisisNominal(lema: "planeta", plural: false)])
+        XCTAssertEqual(morfologia.analizarSustantivo("llegan"), [])
+        XCTAssertEqual(morfologia.analizarSustantivo("casas"), [], "casa no está en el léxico")
+    }
+
+    // MARK: - Para el corrector de P1
+
+    func testReconoceFormasQueNoEstanEnElVocabulario() {
+        let vocabulario = MorfologiaTests.bd.vocabularioEspanol()
+        for forma in ["llegan", "enviaron", "vendrán", "naves", "estrellas"] {
+            XCTAssertFalse(vocabulario.contains(BaseDatos.clave(forma)), "\(forma) no está listada")
+            XCTAssertTrue(morfologia.reconoce(forma), "\(forma) se reconoce por la morfología")
+        }
+    }
+
+    func testReconocePalabrasDelLexicoYDelVocabulario() {
+        for forma in ["cuando", "nave", "llegar", "ir", "van", "el", "nuestro", "no", "a", "ustedes", "cuántas"] {
+            XCTAssertTrue(morfologia.reconoce(forma), forma)
+        }
+    }
+
+    func testNoReconoceErroresNiMorfemas() {
+        for forma in ["lleagn", "naevs", "caminaron", "-amos", "vendr-", "xyz", ""] {
+            XCTAssertFalse(morfologia.reconoce(forma), forma)
+        }
+    }
+
     // MARK: - El algoritmo no conoce ningún verbo
 
     /// Con un léxico inventado, el mismo código analiza un verbo que no existe en español:

@@ -39,6 +39,18 @@ public struct AnalisisVerbal: Equatable {
     }
 }
 
+/// Una lectura de una forma como sustantivo: su lema en singular y su número.
+public struct AnalisisNominal: Equatable {
+    /// Singular, como clave del léxico ("nave" para "naves").
+    public var lema: String
+    public var plural: Bool
+
+    public init(lema: String, plural: Bool) {
+        self.lema = lema
+        self.plural = plural
+    }
+}
+
 /// Analizador morfológico. Solo depende del protocolo `Lexicon`, así se prueba igual
 /// con la BD real que con un `LexiconFalso` de palabras inventadas.
 public struct Morfologia {
@@ -54,8 +66,10 @@ public struct Morfologia {
         static let prefijoTerminacion = "terminacion_"
         static let raizIrregular = "raiz_irregular"
         static let raizExcluida = "raiz_excluida"
+        static let terminacionPlural = "terminacion_plural"
         static let infinitivo = "infinitivo"
         static let verbo = "verbo"
+        static let sustantivo = "sustantivo"
         static let persona = "p"
         static let numero = "n"
         static let plural = "pl"
@@ -98,6 +112,62 @@ public struct Morfologia {
         }
         return []
     }
+
+    /// El infinitivo como clave si `forma` es un infinitivo conocido ("llegar", "ir").
+    /// Lo usa el analizador sintáctico para "ir a + infinitivo".
+    public func infinitivo(_ forma: String) -> String? {
+        let clave = BaseDatos.clave(forma)
+        return esVerbo(clave) ? clave : nil
+    }
+
+    // MARK: - Sustantivos
+
+    /// Lecturas de `forma` como sustantivo: el singular si está en el léxico ("paz"),
+    /// o el plural quitando la terminación más larga que deje un sustantivo conocido
+    /// ("naves" → nave, "luces" → luz).
+    public func analizarSustantivo(_ forma: String) -> [AnalisisNominal] {
+        let clave = BaseDatos.clave(forma)
+        if esSustantivo(clave) {
+            return [AnalisisNominal(lema: clave, plural: false)]
+        }
+        let letras = Array(clave)
+        guard letras.count > 1 else { return [] }
+        for corte in 1..<letras.count {
+            let resto = String(letras[..<corte])
+            let terminacion = "-" + String(letras[corte...])
+            let lecturas = lexicon.entradasEspanol(forma: terminacion)
+                .filter { $0.categoria == Formato.terminacionPlural }
+                .map { resto + ($0.lemas.first ?? "") }  // el lema es lo que se repone: luc-es → luz
+                .filter(esSustantivo)
+                .map { AnalisisNominal(lema: $0, plural: true) }
+            if !lecturas.isEmpty {
+                return sinRepetir(lecturas)
+            }
+        }
+        return []
+    }
+
+    private func esSustantivo(_ lema: String) -> Bool {
+        lexicon.categoria(forma: lema, lengua: .es) == Formato.sustantivo
+    }
+
+    // MARK: - Para el corrector
+
+    /// Indica si `forma` es una palabra española válida: está en el léxico o en
+    /// `vocab_es` como palabra completa, o la morfología la reconoce como verbo
+    /// conjugado, infinitivo o plural. El corrector ortográfico debe preguntar aquí
+    /// antes de corregir: las formas regulares ("llegan", "naves") no están en
+    /// `vocabularioEspanol()` porque se analizan, no se listan.
+    public func reconoce(_ forma: String) -> Bool {
+        let clave = BaseDatos.clave(forma)
+        guard !clave.isEmpty, !clave.contains("-") else { return false }  // un morfema no es una palabra
+        return lexicon.categoria(forma: clave, lengua: .es) != nil
+            || !lexicon.entradasEspanol(forma: clave).isEmpty
+            || !analizarVerbo(clave).isEmpty
+            || !analizarSustantivo(clave).isEmpty
+    }
+
+    // MARK: - Utilidades
 
     /// Indica si `lema` es un verbo conocido: está en el léxico como verbo o en
     /// `vocab_es` como infinitivo ("ir", que no tiene traducción propia).
