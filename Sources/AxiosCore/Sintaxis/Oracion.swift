@@ -33,6 +33,7 @@ extension Parser {
     /// `<entrada> ::= [SIGNO] <clausula> [SIGNO] FIN`. Antes de analizar se comprueba
     /// que todas las palabras se conozcan: la primera que no, se informa con su columna.
     func entrada() throws -> Oracion {
+        visitar("entrada")
         if let desconocida = tokens.indices.first(where: { tokens[$0].tipo == .palabra && !clases[$0].esConocida }) {
             throw ErrorSintactico("palabra desconocida \(describir(tokens[desconocida]))", en: tokens[desconocida])
         }
@@ -57,6 +58,7 @@ extension Parser {
     /// `<clausula> ::= <sint-interrog> <nucleo> | <nucleo>`: empieza por interrogativo
     /// si el token es INTERROG, o PREP seguido de INTERROG ("a quién").
     func clausula() throws -> ClausulaAnalizada {
+        visitar("clausula")
         let empiezaInterrogativo = claseActual.interrogativo != nil
             || (claseActual.preposicion != nil && clase(en: 1).interrogativo != nil)
         let interrogativo = empiezaInterrogativo ? try sintInterrog() : nil
@@ -69,6 +71,7 @@ extension Parser {
     /// palabra no es también un verbo (R12: con dudas, se prefiere la lectura verbal
     /// mientras no haya verbo).
     func sintInterrog() throws -> SintInterrogAnalizado {
+        visitar("sintInterrog")
         var conPreposicion = false
         if claseActual.preposicion != nil {
             avanzar()
@@ -91,6 +94,7 @@ extension Parser {
     /// `<nucleo> ::= [<sn>] <sv> [<sn>] [<sn>]`. Delante del verbo se espera un `<sn>`
     /// solo si la palabra no es NEG ni VERBO (R12: se prefiere la lectura verbal).
     func nucleo() throws -> NucleoAnalizado {
+        visitar("nucleo")
         var antes: SNAnalizado?
         if empiezaSN && !claseActual.negacion && claseActual.verbos.isEmpty {
             antes = try sn()

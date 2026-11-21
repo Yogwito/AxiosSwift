@@ -11,6 +11,9 @@ final class Parser {
     let clases: [ClaseToken]
     let clasificador: Clasificador
     private(set) var posicion = 0
+    /// No terminales visitados, en orden, con el token donde empezó cada uno:
+    /// "entrada[¿]", "clausula[cuando]"... Es la derivación que muestra la traza.
+    private(set) var recorrido: [String] = []
 
     /// Un sustantivo o un interrogativo concuerdan con el verbo en 3.ª persona (R3).
     static let personaNominal = 3
@@ -48,6 +51,11 @@ final class Parser {
         let token = actual
         if posicion < tokens.count - 1 { posicion += 1 }
         return token
+    }
+
+    /// Cada no terminal llama a esto al empezar, para el recorrido de la traza.
+    func visitar(_ noTerminal: String) {
+        recorrido.append("\(noTerminal)[\(actual.tipo == .fin ? "fin" : actual.texto)]")
     }
 
     /// Error en el token actual.

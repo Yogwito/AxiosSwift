@@ -12,6 +12,7 @@ extension Parser {
 
     /// `<sn> ::= PRON | [<determinante>] [NUM] <nominal>`, con R1, R2, R11 y R12.
     func sn() throws -> SNAnalizado {
+        visitar("sn")
         let inicio = actual
         let c = claseActual
 
@@ -73,6 +74,7 @@ extension Parser {
 
     /// `<determinante> ::= ART | POS`. R11: el poseedor es el pronombre del lema.
     func determinante() throws -> DeterminanteAnalizado {
+        visitar("determinante")
         let token = actual
         if let posesivo = claseActual.posesivo {
             guard let poseedor = clasificador.pronombre(lema: posesivo.lemaPreferido) else {
@@ -92,6 +94,7 @@ extension Parser {
 
     /// `<nominal> ::= SUST`. Si hay varias lecturas se usa la primera.
     func nominal() throws -> (AnalisisNominal, Token) {
+        visitar("nominal")
         guard let lectura = claseActual.nominales.first else {
             throw error("se esperaba un nombre y llegó \(describir(actual))")
         }
@@ -102,6 +105,7 @@ extension Parser {
 
     /// `<sv> ::= [NEG] <verbo>`. R10: NEG da polaridad negativa.
     func sv() throws -> SVAnalizado {
+        visitar("sv")
         var polaridad = Polaridad.afirmativa
         if claseActual.negacion {
             avanzar()
@@ -117,6 +121,7 @@ extension Parser {
     /// tiempo, seguido de la preposición del lema y un infinitivo, es el infinitivo en
     /// el tiempo `resultado`, con la persona y el número del verbo.
     func verbo() throws -> VerboAnalizado {
+        visitar("verbo")
         let token = actual
         let lecturas = claseActual.verbos
         guard !lecturas.isEmpty else {
