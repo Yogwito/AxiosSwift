@@ -51,6 +51,33 @@ public struct AnalisisNominal: Equatable {
     }
 }
 
+/// Todo lo que la morfología sabe de un token: sus lecturas como verbo conjugado,
+/// como infinitivo y como sustantivo (puede tener varias o ninguna).
+public struct AnalisisToken: Equatable {
+    public var token: Token
+    public var verbos: [AnalisisVerbal]
+    public var infinitivo: String?
+    public var nominales: [AnalisisNominal]
+
+    public init(token: Token, verbos: [AnalisisVerbal], infinitivo: String?, nominales: [AnalisisNominal]) {
+        self.token = token
+        self.verbos = verbos
+        self.infinitivo = infinitivo
+        self.nominales = nominales
+    }
+
+    /// Más de una lectura verbal: "enviamos" (presente o pasado), "fue" (ser o ir).
+    public var esAmbiguo: Bool { verbos.count > 1 }
+
+    /// "enviar 1pl presente / enviar 1pl pasado", "inf llegar", "nave+pl" o "—".
+    func texto() -> String {
+        var partes = verbos.map { $0.texto() }
+        if let infinitivo { partes.append("inf \(infinitivo)") }
+        partes += nominales.map { $0.plural ? "\($0.lema)+pl" : $0.lema }
+        return partes.isEmpty ? "—" : partes.joined(separator: " / ")
+    }
+}
+
 /// Analizador morfológico. Solo depende del protocolo `Lexicon`, así se prueba igual
 /// con la BD real que con un `LexiconFalso` de palabras inventadas.
 public struct Morfologia {
@@ -149,6 +176,29 @@ public struct Morfologia {
 
     private func esSustantivo(_ lema: String) -> Bool {
         lexicon.categoria(forma: lema, lengua: .es) == Formato.sustantivo
+    }
+
+    // MARK: - Etiquetado de tokens
+
+    /// Analiza cada token `.palabra` por separado: es lo que recibe el analizador
+    /// sintáctico y lo que se muestra en la traza. Los demás tokens (números, signos,
+    /// fin) no se analizan. "ir a + infinitivo" no se junta aquí: cada palabra lleva su
+    /// propia etiqueta y el analizador sintáctico reconoce la construcción.
+    public func etiquetar(_ tokens: [Token]) -> [AnalisisToken] {
+        tokens.compactMap { token in
+            guard token.tipo == .palabra else { return nil }
+            return AnalisisToken(
+                token: token,
+                verbos: analizarVerbo(token.texto),
+                infinitivo: infinitivo(token.texto),
+                nominales: analizarSustantivo(token.texto)
+            )
+        }
+    }
+
+    /// Una línea para la traza: "van: ir 3pl presente | a: — | llegar: inf llegar".
+    public static func texto(_ etiquetas: [AnalisisToken]) -> String {
+        etiquetas.map { "\($0.token.texto): \($0.texto())" }.joined(separator: " | ")
     }
 
     // MARK: - Para el corrector

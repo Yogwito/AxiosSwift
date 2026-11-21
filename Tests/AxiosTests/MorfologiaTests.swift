@@ -180,6 +180,49 @@ final class MorfologiaTests: XCTestCase {
         XCTAssertEqual(morfologia.analizarSustantivo("casas"), [], "casa no está en el léxico")
     }
 
+    // MARK: - Etiquetado por token
+
+    private func token(_ texto: String, _ columna: Int, _ tipo: TipoToken = .palabra) -> Token {
+        Token(tipo: tipo, texto: texto, linea: 1, columna: columna)
+    }
+
+    // "van a llegar": cada token lleva su etiqueta; el futuro lo arma el analizador sintáctico.
+    func testVanALlegarSeEtiquetaTokenPorToken() {
+        let tokens = [token("van", 1), token("a", 5), token("llegar", 7), token("", 13, .fin)]
+        let etiquetas = morfologia.etiquetar(tokens)
+
+        XCTAssertEqual(etiquetas.map(\.token.texto), ["van", "a", "llegar"], "el token fin no se analiza")
+        XCTAssertEqual(etiquetas[0].verbos.map(\.rasgos), [rasgos("ir", 3, true, .presente)])
+        XCTAssertNil(etiquetas[0].infinitivo)
+        XCTAssertEqual(etiquetas[1].verbos, [])
+        XCTAssertNil(etiquetas[1].infinitivo)
+        XCTAssertEqual(etiquetas[2].verbos, [])
+        XCTAssertEqual(etiquetas[2].infinitivo, "llegar")
+        XCTAssertEqual(etiquetas[2].token.columna, 7, "la posición del token se conserva")
+        XCTAssertEqual(Morfologia.texto(etiquetas), "van: ir 3pl presente | a: — | llegar: inf llegar")
+    }
+
+    // "¿Cuándo llegan?" con los signos y el número como los dejaría el analizador léxico.
+    func testSoloSeAnalizanLasPalabras() {
+        let tokens = [
+            token("¿", 1, .interrogacion), token("cuando", 2), token("llegan", 9),
+            token("15", 16, .numero(15)), token("?", 18, .interrogacion), token("", 19, .fin),
+        ]
+        let etiquetas = morfologia.etiquetar(tokens)
+        XCTAssertEqual(etiquetas.map(\.token.texto), ["cuando", "llegan"])
+        XCTAssertEqual(Morfologia.texto(etiquetas), "cuando: — | llegan: llegar 3pl presente")
+    }
+
+    func testEtiquetaAmbiguaYPlural() {
+        let etiquetas = morfologia.etiquetar([token("enviamos", 1), token("mensajes", 10)])
+        XCTAssertTrue(etiquetas[0].esAmbiguo)
+        XCTAssertFalse(etiquetas[1].esAmbiguo)
+        XCTAssertEqual(
+            Morfologia.texto(etiquetas),
+            "enviamos: enviar 1pl presente / enviar 1pl pasado | mensajes: mensaje+pl"
+        )
+    }
+
     // MARK: - Para el corrector de P1
 
     func testReconoceFormasQueNoEstanEnElVocabulario() {
