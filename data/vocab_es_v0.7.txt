@@ -9,6 +9,8 @@
 # Rasgos (clave=valor separados por ";"):
 #   p = persona (1, 2, 3)    n = número (sg, pl)    t = tiempo (pasado, presente, futuro)
 #   pv = persona con la que concuerda el verbo, si no es p ("ustedes vienen": p=2, pv=3)
+#   clase = clase con la que se conjuga una raíz irregular, si no es la de su verbo
+#           ("estuv-ieron": estar es -ar pero su pasado va como -er)
 #   base = raiz (infinitivo = raíz + clase del lema) | infinitivo (la terminación va
 #          pegada al infinitivo completo, como en el futuro: llegar-án)
 # En las terminaciones el lema es la clase de verbo (ar, er, ir) a la que se aplican.
@@ -51,7 +53,7 @@ vien-|venir|raiz_irregular|t=presente
 quier-|querer|raiz_irregular|t=presente
 vin-|venir|raiz_irregular|t=pasado
 quis-|querer|raiz_irregular|t=pasado
-estuv-|estar|raiz_irregular|t=pasado
+estuv-|estar|raiz_irregular|t=pasado;clase=er
 llegu-|llegar|raiz_irregular|t=pasado
 vendr-|venir|raiz_irregular|t=futuro
 querr-|querer|raiz_irregular|t=futuro

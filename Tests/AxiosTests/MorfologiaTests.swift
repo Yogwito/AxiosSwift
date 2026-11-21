@@ -67,6 +67,78 @@ final class MorfologiaTests: XCTestCase {
         XCTAssertEqual(lecturas("ENVIARON"), lecturas("enviaron"))
     }
 
+    // MARK: - Irregulares
+
+    // venir: raíz irregular "vendr-" en el futuro.
+    func testVendranEsFuturoDeVenirPorRaizIrregular() {
+        let analisis = morfologia.analizarVerbo("vendrán")
+        XCTAssertEqual(analisis.map(\.rasgos), [rasgos("venir", 3, true, .futuro)])
+        XCTAssertEqual(analisis.first?.procedencia, .raizIrregular)
+        XCTAssertEqual(analisis.first?.terminacion, "-an")
+    }
+
+    // venir: raíz "vien-" en el presente, pero "venimos" es regular.
+    func testVienenYVenimos() {
+        XCTAssertEqual(lecturas("vienen"), [rasgos("venir", 3, true, .presente)])
+        XCTAssertEqual(lecturas("viene"), [rasgos("venir", 3, false, .presente)])
+        XCTAssertEqual(lecturas("venimos"), [rasgos("venir", 1, true, .presente)],
+                       "la raíz regular ven- está excluida en el pasado")
+        XCTAssertEqual(lecturas("vinimos"), [rasgos("venir", 1, true, .pasado)])
+        XCTAssertEqual(lecturas("vinieron"), [rasgos("venir", 3, true, .pasado)])
+        XCTAssertEqual(lecturas("vengo"), [rasgos("venir", 1, false, .presente)])
+        XCTAssertEqual(lecturas("vino"), [rasgos("venir", 3, false, .pasado)])
+    }
+
+    // querer: "quier-" en presente, "quis-" en pasado y "querr-" en futuro.
+    func testQuerer() {
+        XCTAssertEqual(lecturas("quieren"), [rasgos("querer", 3, true, .presente)])
+        XCTAssertEqual(lecturas("quisieron"), [rasgos("querer", 3, true, .pasado)])
+        XCTAssertEqual(lecturas("querrán"), [rasgos("querer", 3, true, .futuro)])
+        XCTAssertEqual(lecturas("quiso"), [rasgos("querer", 3, false, .pasado)])
+    }
+
+    // ser y estar: ser es supletivo; estar es regular salvo "estuv-" en el pasado.
+    func testSerYEstar() {
+        XCTAssertEqual(lecturas("somos"), [rasgos("ser", 1, true, .presente)])
+        XCTAssertEqual(lecturas("es"), [rasgos("ser", 3, false, .presente)])
+        XCTAssertEqual(lecturas("seremos"), [rasgos("ser", 1, true, .futuro)])
+        XCTAssertEqual(lecturas("están"), [rasgos("estar", 3, true, .presente)])
+        XCTAssertEqual(lecturas("estamos"), [rasgos("estar", 1, true, .presente)],
+                       "la raíz regular est- está excluida en el pasado")
+        XCTAssertEqual(lecturas("estuvieron"), [rasgos("estar", 3, true, .pasado)])
+        XCTAssertEqual(lecturas("estoy"), [rasgos("estar", 1, false, .presente)])
+    }
+
+    // ir: presente supletivo, futuro regular sobre el infinitivo "ir" de vocab_es.
+    func testIr() {
+        let van = morfologia.analizarVerbo("van")
+        XCTAssertEqual(van.map(\.rasgos), [rasgos("ir", 3, true, .presente)])
+        XCTAssertEqual(van.first?.procedencia, .supletiva)
+        XCTAssertNil(van.first?.terminacion)
+        XCTAssertEqual(lecturas("vamos"), [rasgos("ir", 1, true, .presente)])
+        XCTAssertEqual(lecturas("iremos"), [rasgos("ir", 1, true, .futuro)])
+    }
+
+    // "fue" es de ser y de ir: los dos candidatos, en el orden de los datos.
+    func testFueEsAmbiguaEntreSerEIr() {
+        XCTAssertEqual(lecturas("fue"), [rasgos("ser", 3, false, .pasado), rasgos("ir", 3, false, .pasado)])
+        XCTAssertEqual(lecturas("fueron").map(\.raiz), ["ser", "ir"])
+    }
+
+    // ver: casi regular (v-er); solo "veo" es supletiva.
+    func testVer() {
+        XCTAssertEqual(lecturas("vimos"), [rasgos("ver", 1, true, .pasado)])
+        XCTAssertEqual(lecturas("vieron"), [rasgos("ver", 3, true, .pasado)])
+        XCTAssertEqual(lecturas("ven"), [rasgos("ver", 3, true, .presente)])
+        XCTAssertEqual(lecturas("veo"), [rasgos("ver", 1, false, .presente)])
+        XCTAssertEqual(lecturas("verán"), [rasgos("ver", 3, true, .futuro)])
+    }
+
+    // llegar: "llegu-" solo para "llegué".
+    func testLlegueUsaSuRaizDelPasado() {
+        XCTAssertEqual(lecturas("llegué"), [rasgos("llegar", 1, false, .pasado)])
+    }
+
     // MARK: - Lo que no es un verbo conjugado
 
     func testPalabraDesconocidaNoTieneLecturas() {

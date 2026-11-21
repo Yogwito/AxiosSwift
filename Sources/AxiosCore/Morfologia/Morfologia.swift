@@ -15,12 +15,16 @@ public struct AnalisisVerbal: Equatable {
     public enum Procedencia: String, Equatable {
         /// Raíz regular + terminación: "envi-aron".
         case regular
+        /// Raíz irregular de `vocab_es` + terminación: "vendr-án", "vien-en".
+        case raizIrregular = "raiz irregular"
+        /// Forma completa de `vocab_es`, que no se parte: "van", "fue", "soy".
+        case supletiva
     }
 
     /// `raiz` es el infinitivo, como clave del léxico ("enviar").
     public var rasgos: RasgosVerbo
     public var procedencia: Procedencia
-    /// Terminación que se reconoció ("-aron"), como clave sin tildes.
+    /// Terminación que se reconoció ("-aron"), como clave sin tildes; nil en las supletivas.
     public var terminacion: String?
 
     public init(rasgos: RasgosVerbo, procedencia: Procedencia, terminacion: String?) {
@@ -48,6 +52,8 @@ public struct Morfologia {
     /// palabras del español).
     enum Formato {
         static let prefijoTerminacion = "terminacion_"
+        static let raizIrregular = "raiz_irregular"
+        static let raizExcluida = "raiz_excluida"
         static let infinitivo = "infinitivo"
         static let verbo = "verbo"
         static let persona = "p"
@@ -55,6 +61,7 @@ public struct Morfologia {
         static let plural = "pl"
         static let tiempo = "t"
         static let base = "base"
+        static let clase = "clase"
         static let baseInfinitivo = "infinitivo"
     }
 
@@ -63,7 +70,21 @@ public struct Morfologia {
     /// Todas las lecturas de `forma` como verbo conjugado, o [] si no es un verbo
     /// conjugado conocido. No mira tildes ni mayúsculas.
     public func analizarVerbo(_ forma: String) -> [AnalisisVerbal] {
-        let letras = Array(BaseDatos.clave(forma))
+        let clave = BaseDatos.clave(forma)
+
+        // Una forma supletiva se toma entera y no se intenta partir: "fue" → ser, ir.
+        let supletivas = lexicon.entradasEspanol(forma: clave).filter { $0.categoria == Formato.verbo }
+        if !supletivas.isEmpty {
+            return sinRepetir(supletivas.flatMap { entrada in
+                entrada.lemas.filter(esVerbo).compactMap { lema in
+                    rasgos(lema, entrada).map {
+                        AnalisisVerbal(rasgos: $0, procedencia: .supletiva, terminacion: nil)
+                    }
+                }
+            })
+        }
+
+        let letras = Array(clave)
         guard letras.count > 1 else { return [] }
 
         // De la terminación más larga a la más corta; la raíz nunca queda vacía.
@@ -95,28 +116,55 @@ public struct Morfologia {
 
     /// Lecturas de `raiz` + la terminación `entrada`.
     private func analizar(raiz: String, con entrada: EntradaVocab) -> [AnalisisVerbal] {
-        guard let tiempo = tiempo(de: entrada),
-              let persona = Int(entrada.rasgos[Formato.persona] ?? ""),
-              let numero = entrada.rasgos[Formato.numero]
-        else { return [] }
+        guard let tiempoTerminacion = tiempo(de: entrada) else { return [] }
         let clases = entrada.lemas  // ar, er, ir: verbos a los que se aplica
         let pegadaAlInfinitivo = entrada.rasgos[Formato.base] == Formato.baseInfinitivo
 
-        // En el futuro la terminación va pegada al infinitivo ("llegar-an"); en los
-        // demás tiempos, a la raíz ("lleg-an" → lleg + ar).
-        let infinitivos = pegadaAlInfinitivo
+        // Filas de vocab_es para esta raíz ("vendr-", "ven-") en el mismo tiempo.
+        let filasRaiz = lexicon.entradasEspanol(forma: raiz + "-").filter {
+            tiempo(de: $0) == tiempoTerminacion
+        }
+        func lemas(_ categoria: String) -> [String] {
+            filasRaiz.filter { $0.categoria == categoria }.flatMap(\.lemas)
+        }
+
+        // 1. Raíz irregular: "vendr-" + "-an" → venir. Si la terminación va pegada a la
+        //    raíz, el verbo tiene que ser de una de sus clases ("vien-en": venir es -ir),
+        //    salvo que la raíz diga con qué clase se conjuga ("estuv-" va como -er).
+        let irregulares = filasRaiz.filter { $0.categoria == Formato.raizIrregular }.flatMap { fila in
+            fila.lemas.filter { lema in
+                let clase = fila.rasgos[Formato.clase]
+                let encaja = clase.map { clases.contains($0) } ?? clases.contains { lema.hasSuffix($0) }
+                return esVerbo(lema) && (pegadaAlInfinitivo || encaja)
+            }
+        }
+
+        // 2. Raíz regular. En el futuro la terminación va pegada al infinitivo
+        //    ("llegar-an"); en los demás tiempos, a la raíz ("lleg-an" → lleg + ar).
+        //    Se descartan los verbos que en este tiempo no usan su raíz regular
+        //    ("ven-imos" no es pasado: el pasado de venir es "vin-imos").
+        let excluidos = Set(lemas(Formato.raizExcluida))
+        let regulares = (pegadaAlInfinitivo
             ? (clases.contains { raiz.hasSuffix($0) } ? [raiz] : [])
             : clases.map { raiz + $0 }
+        ).filter { esVerbo($0) && !excluidos.contains($0) }
 
-        return infinitivos.filter(esVerbo).map { infinitivo in
-            AnalisisVerbal(
-                rasgos: RasgosVerbo(
-                    raiz: infinitivo, persona: persona, plural: numero == Formato.plural, tiempo: tiempo
-                ),
-                procedencia: .regular,
-                terminacion: entrada.forma
-            )
+        let lecturas = irregulares.map { ($0, AnalisisVerbal.Procedencia.raizIrregular) }
+            + regulares.map { ($0, AnalisisVerbal.Procedencia.regular) }
+        return lecturas.compactMap { lema, procedencia in
+            rasgos(lema, entrada).map {
+                AnalisisVerbal(rasgos: $0, procedencia: procedencia, terminacion: entrada.forma)
+            }
         }
+    }
+
+    /// Rasgos de `lema` con la persona, el número y el tiempo de `entrada`.
+    private func rasgos(_ lema: String, _ entrada: EntradaVocab) -> RasgosVerbo? {
+        guard let tiempo = tiempo(de: entrada),
+              let persona = Int(entrada.rasgos[Formato.persona] ?? ""),
+              let numero = entrada.rasgos[Formato.numero]
+        else { return nil }
+        return RasgosVerbo(raiz: lema, persona: persona, plural: numero == Formato.plural, tiempo: tiempo)
     }
 
     private func tiempo(de entrada: EntradaVocab) -> Tiempo? {
