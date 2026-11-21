@@ -4,6 +4,77 @@
 
 ## Autómata
 
+## Morfología
+
+La morfología (`Sources/AxiosCore/Morfologia/Morfologia.swift`) recibe una palabra y
+dice qué es: de "vendrán" saca *venir, 3.ª persona plural, futuro*; de "naves", *nave en
+plural*. No hay ninguna terminación ni ningún verbo escrito en el código: todo está en
+`data/vocab_es_v0.7.txt` (tabla `vocab_es`) y en el léxico. El código solo trae el
+algoritmo, así que un verbo regular nuevo funciona con solo agregarlo al léxico, y un
+irregular se arregla con una fila de datos.
+
+### Datos (`vocab_es`)
+
+| Categoría | Ejemplo | Para qué sirve |
+|---|---|---|
+| `terminacion_presente` / `_pasado` / `_futuro` | `-aron\|ar\|terminacion_pasado\|p=3;n=pl;t=pasado;base=raiz` | Qué persona, número y tiempo marca una terminación, y a qué clase de verbo (-ar, -er, -ir) se aplica |
+| `raiz_irregular` | `vendr-\|venir\|raiz_irregular\|t=futuro` | Raíz que sustituye a la regular en un tiempo |
+| `raiz_excluida` | `ven-\|venir\|raiz_excluida\|t=pasado` | Raíz regular que el verbo no usa en ese tiempo |
+| `verbo` | `fue\|ser,ir\|verbo\|p=3;n=sg;t=pasado` | Forma supletiva: se toma entera |
+| `infinitivo` | `ir\|ir\|infinitivo\|` | Verbo sin traducción propia en el léxico |
+| `terminacion_plural` | `-ces\|z\|terminacion_plural\|n=pl` | Plural de los sustantivos (el lema es lo que se repone) |
+
+`base=infinitivo` indica que la terminación va pegada al infinitivo entero (el futuro:
+llegar-án); `base=raiz`, que va pegada a la raíz (lleg-an). `clase=er` en una raíz
+irregular dice con qué clase se conjuga si no es la de su verbo (estuv-ieron).
+
+### Algoritmo para un verbo
+
+```
+analizarVerbo(forma):
+    c ← clave(forma)                                  # minúsculas, sin tildes
+    si c es una forma supletiva → devolver sus lecturas (un rasgo por cada lema)
+    para cada corte, de la terminación más larga a la más corta:
+        raíz ← c[..corte]    terminación ← "-" + c[corte..]
+        para cada fila de terminación verbal con esa forma:
+            irregulares ← lemas de "raíz-" como raiz_irregular en ese tiempo
+            regulares   ← si base=infinitivo: [raíz]  si no: [raíz + clase] por clase
+                          menos los lemas de "raíz-" como raiz_excluida en ese tiempo
+            quedarse con los que son verbos conocidos (léxico o infinitivo de vocab_es)
+        si hubo alguna lectura → devolverlas todas (sin repetir)
+    devolver []
+```
+
+Ejemplos:
+
+| Forma | Corte que funciona | Lectura |
+|---|---|---|
+| enviaron | envi + -aron (pasado, -ar) | enviar 3pl pasado |
+| vendrán | vendr + -an (futuro, raíz irregular) | venir 3pl futuro |
+| vienen | vien + -en (presente, raíz irregular, venir es -ir) | venir 3pl presente |
+| queremos | quer + -emos (presente, -er) | querer 1pl presente |
+| venimos | ven + -imos | venir 1pl presente (el pasado se descarta: `ven-` está excluida) |
+| enviamos | envi + -amos | enviar 1pl presente **y** enviar 1pl pasado |
+| van | forma supletiva | ir 3pl presente |
+
+Si una forma tiene varias lecturas se devuelven todas, en el orden del archivo de datos:
+la morfología no adivina, y el analizador sintáctico elige con el contexto. Para los
+sustantivos se hace lo mismo con `terminacion_plural`: "luces" → luc + -es → luz.
+
+### Interfaz
+
+- `analizarVerbo(_:) -> [AnalisisVerbal]`: lecturas como verbo conjugado (rasgos,
+  procedencia regular/raíz irregular/supletiva y terminación usada).
+- `infinitivo(_:) -> String?`: el infinitivo si la forma lo es ("ir a + infinitivo").
+- `analizarSustantivo(_:) -> [AnalisisNominal]`: lema en singular y número.
+- `etiquetar(_ tokens:) -> [AnalisisToken]`: todo lo anterior para cada token `.palabra`,
+  con su posición; `Morfologia.texto(_:)` es la línea de la traza. "Van a llegar" sale
+  como `van: ir 3pl presente | a: — | llegar: inf llegar`: el futuro perifrástico lo
+  reconoce el analizador sintáctico, porque abarca tres palabras.
+- `reconoce(_:) -> Bool`: para el corrector ortográfico. Las formas regulares ("llegan")
+  no están en `vocabularioEspanol()` porque se analizan; el corrector debe preguntar aquí
+  antes de corregir una palabra.
+
 ## Modelo de datos
 
 El esquema está en `Sources/AxiosCore/Recursos/schema.sql` y se puede ejecutar varias
