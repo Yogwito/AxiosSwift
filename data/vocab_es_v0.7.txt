@@ -13,6 +13,8 @@
 #           ("estuv-ieron": estar es -ar pero su pasado va como -er)
 #   base = raiz (infinitivo = raíz + clase del lema) | infinitivo (la terminación va
 #          pegada al infinitivo completo, como en el futuro: llegar-án)
+#   f = qué pregunta un interrogativo: sujeto, objeto o circunstancial (regla R5 de la BNF)
+#   resultado = tiempo que da una perífrasis ("van a llegar" → futuro)
 # En las terminaciones el lema es la clase de verbo (ar, er, ir) a la que se aplican.
 # La categoría de las terminaciones lleva el tiempo porque vocab_es no admite dos filas
 # con la misma forma y categoría (-amos es presente y pasado de los verbos en -ar).
@@ -94,6 +96,10 @@ estuvo|estar|verbo|p=3;n=sg;t=pasado
 # --- Infinitivos que no están en el léxico (no tienen traducción propia) ---------
 ir|ir|infinitivo|
 
+# --- Perífrasis: verbo en el tiempo t + la preposición del lema + infinitivo -----
+# "van a llegar" = llegar en futuro, con la persona y el número de "van".
+ir|a|perifrasis|t=presente;resultado=futuro
+
 # --- Pronombres personales -------------------------------------------------------
 yo|yo|pronombre|p=1;n=sg
 tú|tú|pronombre|p=2;n=sg
@@ -132,11 +138,16 @@ unas|un|articulo|n=pl
 no|no|negacion|
 a|a|preposicion|
 
-# --- Variantes de los interrogativos del léxico ----------------------------------
-cuántas|cuántos|interrogativo|n=pl
-cuánto|cuántos|interrogativo|n=sg
-cuánta|cuántos|interrogativo|n=sg
-quiénes|quién|interrogativo|n=pl
+# --- Interrogativos: el lema es la clave del léxico; f dice qué preguntan --------
+qué|qué|interrogativo|f=objeto
+cuándo|cuándo|interrogativo|f=circunstancial
+dónde|dónde|interrogativo|f=circunstancial
+cuántos|cuántos|interrogativo|f=sujeto;n=pl
+cuántas|cuántos|interrogativo|f=sujeto;n=pl
+cuánto|cuántos|interrogativo|f=sujeto;n=sg
+cuánta|cuántos|interrogativo|f=sujeto;n=sg
+quién|quién|interrogativo|f=sujeto;n=sg
+quiénes|quién|interrogativo|f=sujeto;n=pl
 
 # --- Plural de los sustantivos: se quita la terminación y se repone el lema -------
 -s||terminacion_plural|n=pl
