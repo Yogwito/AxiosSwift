@@ -80,6 +80,56 @@ public protocol Lexicon {
     /// Categoría vigente (pronombre, sustantivo, verbo, interrogativo, numero...)
     /// de una forma de `lengua`, o nil si la forma no está en el léxico.
     func categoria(forma: String, lengua: Lengua) -> String?
+    /// Filas de `vocab_es` cuya forma coincide con `forma` sin mirar tildes ni
+    /// mayúsculas (terminaciones, raíces, formas verbales, pronombres, posesivos...).
+    func entradasEspanol(forma: String) -> [EntradaVocab]
+}
+
+extension Lexicon {
+    /// Por defecto no hay vocabulario español: así los `Lexicon` que no lo necesitan
+    /// (por ejemplo, los fakes de los validadores) no tienen que implementarlo.
+    public func entradasEspanol(forma: String) -> [EntradaVocab] { [] }
+}
+
+// MARK: - Vocabulario español
+
+/// Una fila de `vocab_es` ya interpretada. `forma` y `lemas` vienen como claves
+/// (`BaseDatos.clave`: minúsculas, sin tildes, con ñ), igual que `lexico.es_clave`.
+public struct EntradaVocab: Equatable {
+    /// "-amos" (terminación), "vendr-" (raíz irregular), "van", "nuestro"...
+    public var forma: String
+    /// Candidatos en orden de preferencia: "fue" → ["ser", "ir"]. Vacío si no hay lema.
+    public var lemas: [String]
+    public var categoria: String?
+    /// Rasgos como diccionario: "p=3;n=pl;t=futuro" → ["p": "3", "n": "pl", "t": "futuro"].
+    public var rasgos: [String: String]
+
+    public init(forma: String, lemas: [String], categoria: String?, rasgos: [String: String]) {
+        self.forma = forma
+        self.lemas = lemas
+        self.categoria = categoria
+        self.rasgos = rasgos
+    }
+
+    /// Interpreta una fila tal como está en `vocab_es` (o en el archivo `#vocab_es`).
+    public init(fila forma: String, lema: String?, categoria: String?, rasgos: String?) {
+        self.forma = BaseDatos.clave(forma)
+        self.lemas = (lema ?? "")
+            .split(separator: ",")
+            .map { BaseDatos.clave(String($0)) }
+            .filter { !$0.isEmpty }
+        self.categoria = categoria
+        var pares: [String: String] = [:]
+        for par in (rasgos ?? "").split(separator: ";") {
+            let partes = par.split(separator: "=", maxSplits: 1).map {
+                $0.trimmingCharacters(in: .whitespaces)
+            }
+            if partes.count == 2, !partes[0].isEmpty {
+                pares[partes[0]] = partes[1]
+            }
+        }
+        self.rasgos = pares
+    }
 }
 
 // MARK: - Traza

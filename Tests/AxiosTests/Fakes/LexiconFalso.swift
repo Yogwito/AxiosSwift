@@ -9,17 +9,26 @@ struct LexiconFalso: Lexicon {
     var vocabulario: Set<String>
     /// Categoría de cada forma, por lengua.
     var categorias: [Lengua: [String: String]]
+    /// Filas de vocab_es en memoria, vacío por defecto.
+    var vocabEs: [EntradaVocab]
 
     init(
         traducciones: [Lengua: [String: String]] = [:],
         reglas: [Lengua: [String: String]] = [:],
         vocabulario: Set<String> = [],
-        categorias: [Lengua: [String: String]] = [:]
+        categorias: [Lengua: [String: String]] = [:],
+        vocabEs: [EntradaVocab] = []
     ) {
         self.traducciones = traducciones
         self.reglas = reglas
         self.vocabulario = vocabulario
         self.categorias = categorias
+        self.vocabEs = vocabEs
+    }
+
+    func entradasEspanol(forma: String) -> [EntradaVocab] {
+        let clave = BaseDatos.clave(forma)
+        return vocabEs.filter { $0.forma == clave }
     }
 
     func categoria(forma: String, lengua: Lengua) -> String? {

@@ -1,0 +1,135 @@
+#vocab_es|version=0.7
+# Vocabulario español para la morfología y el analizador sintáctico.
+# forma|lema|categoria|rasgos
+#
+# Notación:
+#   "-amos"  terminación (se quita del final de la palabra)
+#   "vendr-" raíz irregular (lo que queda al quitar la terminación)
+#   lema con comas = varios candidatos, en orden de preferencia ("fue" → ser, ir)
+# Rasgos (clave=valor separados por ";"):
+#   p = persona (1, 2, 3)    n = número (sg, pl)    t = tiempo (pasado, presente, futuro)
+#   pv = persona con la que concuerda el verbo, si no es p ("ustedes vienen": p=2, pv=3)
+#   base = raiz (infinitivo = raíz + clase del lema) | infinitivo (la terminación va
+#          pegada al infinitivo completo, como en el futuro: llegar-án)
+# En las terminaciones el lema es la clase de verbo (ar, er, ir) a la que se aplican.
+# La categoría de las terminaciones lleva el tiempo porque vocab_es no admite dos filas
+# con la misma forma y categoría (-amos es presente y pasado de los verbos en -ar).
+
+# --- Terminaciones del presente -------------------------------------------------
+-o|ar,er,ir|terminacion_presente|p=1;n=sg;t=presente;base=raiz
+-as|ar|terminacion_presente|p=2;n=sg;t=presente;base=raiz
+-es|er,ir|terminacion_presente|p=2;n=sg;t=presente;base=raiz
+-a|ar|terminacion_presente|p=3;n=sg;t=presente;base=raiz
+-e|er,ir|terminacion_presente|p=3;n=sg;t=presente;base=raiz
+-amos|ar|terminacion_presente|p=1;n=pl;t=presente;base=raiz
+-emos|er|terminacion_presente|p=1;n=pl;t=presente;base=raiz
+-imos|ir|terminacion_presente|p=1;n=pl;t=presente;base=raiz
+-an|ar|terminacion_presente|p=3;n=pl;t=presente;base=raiz
+-en|er,ir|terminacion_presente|p=3;n=pl;t=presente;base=raiz
+
+# --- Terminaciones del pasado (pretérito perfecto simple) -----------------------
+-é|ar|terminacion_pasado|p=1;n=sg;t=pasado;base=raiz
+-í|er,ir|terminacion_pasado|p=1;n=sg;t=pasado;base=raiz
+-aste|ar|terminacion_pasado|p=2;n=sg;t=pasado;base=raiz
+-iste|er,ir|terminacion_pasado|p=2;n=sg;t=pasado;base=raiz
+-ó|ar|terminacion_pasado|p=3;n=sg;t=pasado;base=raiz
+-ió|er,ir|terminacion_pasado|p=3;n=sg;t=pasado;base=raiz
+-amos|ar|terminacion_pasado|p=1;n=pl;t=pasado;base=raiz
+-imos|er,ir|terminacion_pasado|p=1;n=pl;t=pasado;base=raiz
+-aron|ar|terminacion_pasado|p=3;n=pl;t=pasado;base=raiz
+-ieron|er,ir|terminacion_pasado|p=3;n=pl;t=pasado;base=raiz
+
+# --- Terminaciones del futuro (van pegadas al infinitivo) -----------------------
+-é|ar,er,ir|terminacion_futuro|p=1;n=sg;t=futuro;base=infinitivo
+-ás|ar,er,ir|terminacion_futuro|p=2;n=sg;t=futuro;base=infinitivo
+-á|ar,er,ir|terminacion_futuro|p=3;n=sg;t=futuro;base=infinitivo
+-emos|ar,er,ir|terminacion_futuro|p=1;n=pl;t=futuro;base=infinitivo
+-án|ar,er,ir|terminacion_futuro|p=3;n=pl;t=futuro;base=infinitivo
+
+# --- Raíces irregulares: sustituyen a la raíz regular en un tiempo ---------------
+vien-|venir|raiz_irregular|t=presente
+quier-|querer|raiz_irregular|t=presente
+vin-|venir|raiz_irregular|t=pasado
+quis-|querer|raiz_irregular|t=pasado
+estuv-|estar|raiz_irregular|t=pasado
+llegu-|llegar|raiz_irregular|t=pasado
+vendr-|venir|raiz_irregular|t=futuro
+querr-|querer|raiz_irregular|t=futuro
+
+# --- Formas supletivas: la forma completa no se deja partir ----------------------
+soy|ser|verbo|p=1;n=sg;t=presente
+eres|ser|verbo|p=2;n=sg;t=presente
+es|ser|verbo|p=3;n=sg;t=presente
+somos|ser|verbo|p=1;n=pl;t=presente
+son|ser|verbo|p=3;n=pl;t=presente
+estoy|estar|verbo|p=1;n=sg;t=presente
+voy|ir|verbo|p=1;n=sg;t=presente
+vas|ir|verbo|p=2;n=sg;t=presente
+va|ir|verbo|p=3;n=sg;t=presente
+vamos|ir|verbo|p=1;n=pl;t=presente
+van|ir|verbo|p=3;n=pl;t=presente
+fui|ser,ir|verbo|p=1;n=sg;t=pasado
+fuiste|ser,ir|verbo|p=2;n=sg;t=pasado
+fue|ser,ir|verbo|p=3;n=sg;t=pasado
+fuimos|ser,ir|verbo|p=1;n=pl;t=pasado
+fueron|ser,ir|verbo|p=3;n=pl;t=pasado
+vengo|venir|verbo|p=1;n=sg;t=presente
+vine|venir|verbo|p=1;n=sg;t=pasado
+vino|venir|verbo|p=3;n=sg;t=pasado
+veo|ver|verbo|p=1;n=sg;t=presente
+quise|querer|verbo|p=1;n=sg;t=pasado
+quiso|querer|verbo|p=3;n=sg;t=pasado
+estuve|estar|verbo|p=1;n=sg;t=pasado
+estuvo|estar|verbo|p=3;n=sg;t=pasado
+
+# --- Infinitivos que no están en el léxico (no tienen traducción propia) ---------
+ir|ir|infinitivo|
+
+# --- Pronombres personales -------------------------------------------------------
+yo|yo|pronombre|p=1;n=sg
+tú|tú|pronombre|p=2;n=sg
+usted|usted|pronombre|p=2;n=sg;pv=3
+él|él|pronombre|p=3;n=sg
+ella|ella|pronombre|p=3;n=sg
+nosotros|nosotros|pronombre|p=1;n=pl
+nosotras|nosotros|pronombre|p=1;n=pl
+ustedes|ustedes|pronombre|p=2;n=pl;pv=3
+ellos|ellos|pronombre|p=3;n=pl
+ellas|ellas|pronombre|p=3;n=pl
+
+# --- Posesivos: el lema es el pronombre del poseedor; n es el número del nombre ---
+mi|yo|posesivo|n=sg
+mis|yo|posesivo|n=pl
+tu|tú|posesivo|n=sg
+tus|tú|posesivo|n=pl
+su|él,ellos,usted,ustedes|posesivo|n=sg
+sus|él,ellos,usted,ustedes|posesivo|n=pl
+nuestro|nosotros|posesivo|n=sg
+nuestra|nosotros|posesivo|n=sg
+nuestros|nosotros|posesivo|n=pl
+nuestras|nosotros|posesivo|n=pl
+
+# --- Artículos (Kethari y Ozh no tienen: el analizador los reconoce y los descarta)
+el|el|articulo|n=sg
+la|el|articulo|n=sg
+los|el|articulo|n=pl
+las|el|articulo|n=pl
+un|un|articulo|n=sg
+una|un|articulo|n=sg
+unos|un|articulo|n=pl
+unas|un|articulo|n=pl
+
+# --- Palabras gramaticales --------------------------------------------------------
+no|no|negacion|
+a|a|preposicion|
+
+# --- Variantes de los interrogativos del léxico ----------------------------------
+cuántas|cuántos|interrogativo|n=pl
+cuánto|cuántos|interrogativo|n=sg
+cuánta|cuántos|interrogativo|n=sg
+quiénes|quién|interrogativo|n=pl
+
+# --- Plural de los sustantivos: se quita la terminación y se repone el lema -------
+-s||terminacion_plural|n=pl
+-es||terminacion_plural|n=pl
+-ces|z|terminacion_plural|n=pl

@@ -374,12 +374,14 @@ public final class BaseDatos: Lexicon {
 
     /// Palabras españolas conocidas: las de las claves vigentes del léxico
     /// (separadas por espacios) más las formas de `vocab_es`, todas normalizadas.
+    /// Las terminaciones ("-amos") y raíces ("vendr-") de `vocab_es` llevan guion y no
+    /// son palabras: no se incluyen, para que el corrector no las tome por válidas.
     public func vocabularioEspanol() -> Set<String> {
         let filas = try? consultar(
             """
             SELECT es_clave FROM lexico WHERE vigente_hasta IS NULL
             UNION
-            SELECT forma FROM vocab_es
+            SELECT forma FROM vocab_es WHERE instr(forma, '-') = 0
             """,
             []
         ) { fila in texto(fila, 0) }
@@ -392,6 +394,24 @@ public final class BaseDatos: Lexicon {
         }
         palabras.remove("")
         return palabras
+    }
+
+    /// Filas de `vocab_es` cuya forma, sin tildes ni mayúsculas, es `forma`.
+    /// La comparación se hace con `BaseDatos.clave` en Swift porque la tabla guarda la
+    /// forma tal como está en el archivo (con tildes) y SQLite no sabe quitarlas.
+    /// Se devuelven en el orden del archivo.
+    public func entradasEspanol(forma: String) -> [EntradaVocab] {
+        let buscada = BaseDatos.clave(forma)
+        let filas = try? consultar(
+            "SELECT forma, lema, categoria, rasgos FROM vocab_es ORDER BY id",
+            []
+        ) { fila in
+            EntradaVocab(
+                fila: texto(fila, 0), lema: textoOpcional(fila, 1),
+                categoria: textoOpcional(fila, 2), rasgos: textoOpcional(fila, 3)
+            )
+        }
+        return (filas ?? []).filter { $0.forma == buscada }
     }
 
     // MARK: - Lectura de señales
