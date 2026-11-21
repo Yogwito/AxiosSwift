@@ -80,11 +80,19 @@ función tiene cada sintagma y cómo se llena el árbol.
 - **R4. Sintagmas detrás del verbo.** Si todavía no hay sujeto, el primero que concuerda
   con el verbo es el sujeto ("¿Vienen ustedes?"); el otro es el objeto ("Queremos paz":
   *paz* es 3.ª singular y no concuerda con 1.ª plural). Como mucho hay un objeto.
+  Cuando también hay un interrogativo que puede ser sujeto, el orden para elegir el
+  sujeto es: (1) el sintagma de delante; (2) un **pronombre** de detrás que concuerde;
+  (3) el interrogativo (R5); (4) un **nombre** de detrás que concuerde. Así en
+  "¿Cuántos ciclos esperarán ustedes?" el sujeto es *ustedes* (y "cuántos ciclos" el
+  objeto), y en "¿Quién envió el mensaje?" es *quién* (y "el mensaje" el objeto).
 - **R5. Función del interrogativo**, según el rasgo `f` de `vocab_es`:
   `f=circunstancial` (cuándo, dónde) → circunstancial; `f=objeto` (qué) → objeto;
   `f=sujeto` (quién, cuántos) → sujeto si no hay otro sujeto, no lleva `PREP` delante y
   concuerda con el verbo, y si no, objeto. "¿Quién envió el mensaje?" → sujeto;
-  "¿A quién escuchan ustedes?" → objeto; "¿Cuántas naves llegaron?" → sujeto.
+  "¿A quién escuchan ustedes?" → objeto; "¿Cuántas naves llegaron?" → sujeto. Para
+  concordar, el interrogativo es 3.ª persona con el número de su nombre ("cuántas naves")
+  o, si no lleva, el de su rasgo `n` (quién: singular). Con `f=objeto` y un nombre detrás,
+  ese nombre es el objeto ("¿Cuántos ciclos…?"); los circunstanciales no llevan nombre.
 - **R6. Lecturas ambiguas de la morfología.** Primero se quedan las lecturas del verbo
   que concuerdan con el sujeto (explícito o interrogativo); si queda más de una, se usa la
   primera en el orden de los datos ("enviamos" → presente). Si ninguna concuerda, es un
@@ -121,6 +129,41 @@ función tiene cada sintagma y cómo se llena el árbol.
 | ¿Quién envió el mensaje? | sint-interrog(quien) · nucleo(sv, sn) | parcial(quien, sujeto) · S: interrogativo · O: mensaje (R5) |
 | Ellos no van a llegar | nucleo(sn, sv(NEG, VERBO_PERIF PREP INF)) | V: llegar 3pl futuro (ir a) negativa (R9, R10) |
 | Ellos visitaron nuestro mundo | nucleo(sn, sv, sn(POS, SUST)) | O: mundo de(nosotros) (R11) |
+
+### Implementación
+
+El analizador está en `Sources/AxiosCore/Sintaxis/` y se usa así:
+
+```swift
+let analizador = AnalizadorSintactico(lexicon: bd)
+switch analizador.analizar(tokens) {           // Result<Oracion, ErrorSintactico>
+case .success(let oracion): print(oracion.texto())
+case .failure(let error):   print(error.texto())   // "columna 10: palabra desconocida 'xyz'"
+}
+```
+
+| Archivo | Qué hay |
+|---|---|
+| `Clasificacion.swift` | Los terminales: `Clasificador` da a cada token sus categorías (`ClaseToken`) consultando `vocab_es` y la morfología. También `ErrorSintactico` (motivo, línea y columna) |
+| `Parser.swift` | El estado: tokens, clase de cada uno y posición. `empiezaSN` y `esCantidadONombre` son los conjuntos FIRST que deciden cada alternativa |
+| `Sintagmas.swift` | `sn()`, `determinante()`, `nominal()`, `sv()`, `verbo()`, con R1, R2, R9, R10, R11 y R12 |
+| `Oracion.swift` | `entrada()`, `clausula()`, `sintInterrog()`, `nucleo()` y la construcción del árbol con R3 a R8 |
+| `AnalizadorSintactico.swift` | La entrada pública `analizar(_:)` y la constante `cantidadMaxima` |
+
+Cada no terminal es una función con el mismo nombre y su regla BNF en el comentario. El
+análisis no retrocede: cada función mira el token actual (y en R12 el siguiente) para
+decidir qué alternativa seguir. Antes de empezar, `entrada()` comprueba que todas las
+palabras tengan alguna categoría; la primera que no, es un error con su columna.
+
+Los no terminales devuelven estructuras intermedias (`SNAnalizado`, `VerboAnalizado`…)
+que conservan el token y los datos de concordancia, y al final `construir` aplica las
+reglas de papeles y tipo de oración y arma la `Oracion`. Las pruebas están en
+`SintagmasTests` (cada no terminal por separado), `SintaxisTests` (frases del enunciado y
+reglas R1 a R12) y `SenalesSintaxisTests` (la salida del decodificador de los días 1 a 7).
+
+Alcance: las frases con adverbios ("antes", "ya"), pronombres átonos ("los vimos") o
+indefinidos ("ninguna") quedan fuera de la gramática del enunciado y se rechazan con la
+columna de la palabra que no encaja (señales 1, 4 y 6).
 
 ## Autómata
 
