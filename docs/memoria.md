@@ -165,6 +165,41 @@ Alcance: las frases con adverbios ("antes", "ya"), pronombres átonos ("los vimo
 indefinidos ("ninguna") quedan fuera de la gramática del enunciado y se rechazan con la
 columna de la palabra que no encaja (señales 1, 4 y 6).
 
+### Enganche con el pipeline y traza
+
+El pipeline (P1) llama a P2 después del corrector, con los tokens corregidos:
+
+```swift
+var traza = Traza()                    // la misma que recorre todas las fases
+let analizador = AnalizadorSintactico(lexicon: bd)
+switch analizador.analizar(tokens, traza: &traza) {   // Result<Oracion, ErrorSintactico>
+case .success(let oracion): // → generadores de Kethari y Ozh (P3)
+case .failure(let error):   // → motivo del registro: error.texto()
+}
+```
+
+Antes de analizar, `AdaptadorTokens.adaptar` deja los tokens como los espera la BNF sin
+cambiar su texto ni su posición: corta en el primer `.fin` (y lo agrega si falta), quita
+la puntuación que llegue como `.palabra` (".", ","), y convierte en `.interrogacion` o
+`.numero` los signos y cifras que lleguen como `.palabra`. Si el analizador léxico
+entrega exactamente el contrato de `Modelos.swift`, no cambia nada.
+
+Cada paso de P2 agrega una fase a la traza (`axios traducir "…" --traza`):
+
+```
+[morfologia]    Cuándo: — | llegan: llegar 3pl presente
+[clasificacion] ¿ SIGNO · Cuándo INTERROG · llegan VERBO · ? SIGNO · FIN
+[sintaxis]      entrada[¿] › clausula[Cuándo] › sintInterrog[Cuándo] › nucleo[llegan] › sv[llegan] › verbo[llegan]
+[arbol]         parcial(cuando, circunstancial) · S: omitido · V: llegar 3pl presente · O: —
+```
+
+| Fase | Qué muestra |
+|---|---|
+| `morfologia` | Las lecturas de cada palabra: verbo con sus rasgos (todas si es ambigua, separadas por "/"), `inf` si es infinitivo, `+pl` si es un sustantivo en plural, "—" si no tiene ninguna |
+| `clasificacion` | Los terminales de la BNF de cada token; una palabra ambigua muestra todas sus categorías ("el PRON/ART") y una sin categoría, "desconocida" |
+| `sintaxis` | El recorrido: cada no terminal visitado con el token donde empezó. Es la derivación por la BNF; si hay un error, termina en el no terminal donde falló |
+| `arbol` | `Oracion.texto()`, o `error · columna N: motivo` |
+
 ## Autómata
 
 ## Morfología
