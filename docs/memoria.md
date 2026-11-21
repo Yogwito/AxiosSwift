@@ -229,6 +229,42 @@ generador de forma independiente: si el generador tuviera un error, el validador
 heredaría, y una frase mal generada se rechaza. Un test usa un `LexiconFalso` con palabras
 inventadas para demostrar que la gramática no depende de ningún vocabulario concreto.
 
+## Árbol intermedio
+
+El analizador sintáctico no produce texto en otra lengua: produce un árbol (`Oracion`, en
+`Sources/AxiosCore/Arbol/ArbolIntermedio.swift`) que describe la pregunta en términos del
+español y que leen los dos generadores. Así hay un solo análisis del español y dos
+generadores que no se conocen entre sí; agregar una lengua nueva sería escribir solo su
+generador.
+
+```mermaid
+classDiagram
+    Oracion --> TipoOracion
+    Oracion --> Sujeto
+    Oracion --> NodoVerbo
+    Oracion --> SN : objeto?
+    TipoOracion --> Interrogativo : preguntaParcial
+    Sujeto --> SN : explicito
+    SN --> Nucleo
+    SN --> Pronombre : poseedor?
+    Nucleo --> Pronombre : pronombre
+    NodoVerbo --> RasgosVerbo
+```
+
+- **Oracion**: tipo (declarativa, pregunta de sí/no o pregunta parcial con su
+  interrogativo), sujeto, verbo y objeto opcional.
+- **Sujeto**: explícito (un SN), omitido (persona y número salen del verbo) o el propio
+  interrogativo ("¿Quién…?").
+- **SN**: núcleo (pronombre o sustantivo con su número), cantidad ya convertida a número y
+  poseedor opcional. Los artículos no se guardan.
+- **NodoVerbo**: `RasgosVerbo` (infinitivo, persona, número, tiempo), polaridad y la marca
+  `perifrastico` para el futuro con "ir a".
+- **Interrogativo**: su lema y qué pregunta (sujeto, objeto o circunstancia).
+
+La pregunta parcial lleva el interrogativo como valor asociado del tipo, así no se puede
+construir una pregunta parcial sin interrogativo ni una declarativa con uno. El contrato
+completo, con reglas y ejemplos para los generadores, está en `docs/contrato-arbol.md`.
+
 ## Análisis de errores
 
 ## Declaración de uso de IA
