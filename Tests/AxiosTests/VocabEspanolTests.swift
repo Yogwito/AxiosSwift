@@ -83,16 +83,16 @@ final class VocabEspanolTests: XCTestCase {
         XCTAssertEqual(r.version, "0.7")
         XCTAssertEqual(r.errores, [])
         XCTAssertEqual(r.omitidas, 0)
-        XCTAssertEqual(r.nuevas, 98)
-        XCTAssertEqual(try bd.contarFilas("vocab_es"), 98)
+        XCTAssertEqual(r.nuevas, 104)
+        XCTAssertEqual(try bd.contarFilas("vocab_es"), 104)
     }
 
     func testRecargarVocabEsEsIdempotente() throws {
         let bd = try bdConVocabulario()
         let r = try bd.cargar(archivo: archivoDatos("vocab_es_v0.7.txt"))
         XCTAssertEqual(r.nuevas, 0)
-        XCTAssertEqual(r.omitidas, 98)
-        XCTAssertEqual(try bd.contarFilas("vocab_es"), 98)
+        XCTAssertEqual(r.omitidas, 104)
+        XCTAssertEqual(try bd.contarFilas("vocab_es"), 104)
     }
 
     func testEntradasEspanolIgnoraTildes() throws {
@@ -190,6 +190,40 @@ final class VocabEspanolTests: XCTestCase {
                 let pronombre = bd.entradasEspanol(forma: lema).first { $0.categoria == "pronombre" }
                 XCTAssertNotNil(pronombre?.rasgos["p"], "\(posesivo.forma) → \(lema)")
             }
+        }
+    }
+
+    /// Cada interrogativo dice qué pregunta (rasgo f, regla R5) y su lema es un
+    /// interrogativo del léxico; y cada interrogativo del léxico tiene su fila.
+    func testLosInterrogativosDeclaranSuFuncion() throws {
+        let bd = try bdConVocabulario()
+        let interrogativos = try filasDelArchivo().filter { $0.categoria == "interrogativo" }
+        XCTAssertEqual(interrogativos.count, 9)
+        for fila in interrogativos {
+            XCTAssertTrue(["sujeto", "objeto", "circunstancial"].contains(fila.rasgos["f"] ?? ""), fila.forma)
+            XCTAssertEqual(bd.categoria(forma: fila.lemas.first ?? "", lengua: .es), "interrogativo", fila.forma)
+            if fila.rasgos["f"] == "sujeto" {
+                XCTAssertNotNil(fila.rasgos["n"], "un interrogativo que puede ser sujeto necesita número: \(fila.forma)")
+            }
+        }
+        for palabra in ["qué", "cuándo", "dónde", "cuántos", "quién"] {
+            XCTAssertTrue(interrogativos.contains { $0.forma == BaseDatos.clave(palabra) }, palabra)
+        }
+    }
+
+    /// La perífrasis "ir a": su forma es un verbo conocido, su lema una preposición y
+    /// sus tiempos t y resultado existen.
+    func testLaPerifrasisApuntaAUnVerboYUnaPreposicion() throws {
+        let bd = try bdConVocabulario()
+        let perifrasis = try filasDelArchivo().filter { $0.categoria == "perifrasis" }
+        XCTAssertEqual(perifrasis.count, 1)
+        for fila in perifrasis {
+            XCTAssertTrue(Morfologia(lexicon: bd).esVerbo(fila.forma), fila.forma)
+            for lema in fila.lemas {
+                XCTAssertTrue(bd.entradasEspanol(forma: lema).contains { $0.categoria == "preposicion" }, lema)
+            }
+            XCTAssertNotNil(Tiempo(rawValue: fila.rasgos["t"] ?? ""))
+            XCTAssertNotNil(Tiempo(rawValue: fila.rasgos["resultado"] ?? ""))
         }
     }
 }
