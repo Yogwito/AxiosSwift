@@ -2,6 +2,126 @@
 
 ## BNF
 
+Gramática del español que reconoce el analizador sintáctico (P2). Se escribió para un
+analizador descendente recursivo: cada no terminal es una función con el mismo nombre
+(`entrada()`, `clausula()`, `sintInterrog()`, `nucleo()`, `sv()`, `verbo()`, `sn()`,
+`determinante()`, `nominal()`). La salida es el árbol intermedio (ver "Árbol intermedio").
+
+### Terminales
+
+La gramática no contiene ninguna palabra del español. Cada terminal es una **categoría**
+de token que resuelven los datos (léxico y `vocab_es`) o la morfología:
+
+| Terminal | Un token lo es si… | Ejemplos |
+|---|---|---|
+| `SIGNO` | es un token `.interrogacion` | ¿ ? |
+| `NUM` | es un token `.numero(n)` (el analizador léxico ya convirtió el número) | 15, 9999 |
+| `FIN` | es el token `.fin` | |
+| `INTERROG` | tiene categoría `interrogativo` en el léxico o en `vocab_es` | qué, cuándo, dónde, cuántas, quién |
+| `PRON` | tiene categoría `pronombre` en `vocab_es` | yo, ustedes, ellos |
+| `ART` | tiene categoría `articulo` en `vocab_es` | el, una, los |
+| `POS` | tiene categoría `posesivo` en `vocab_es` | su, nuestro, mis |
+| `NEG` | tiene categoría `negacion` en `vocab_es` | no |
+| `PREP` | tiene categoría `preposicion` en `vocab_es` | a |
+| `SUST` | `Morfologia.analizarSustantivo` le da alguna lectura | paz, naves |
+| `VERBO` | `Morfologia.analizarVerbo` le da alguna lectura | llegan, vendrán, fue |
+| `INF` | `Morfologia.infinitivo` lo reconoce | llegar, ir |
+| `VERBO_PERIF` | es un `VERBO` cuyo lema y tiempo coinciden con una fila `perifrasis` de `vocab_es` (`ir\|a\|perifrasis\|t=presente`) | van, vamos |
+
+Una palabra puede pertenecer a varios terminales (sin tildes "el" es `ART` y `PRON`); la
+regla R12 dice cómo se elige.
+
+### Gramática
+
+```
+<entrada>        ::= [SIGNO] <clausula> [SIGNO] FIN
+<clausula>       ::= <sint-interrog> <nucleo>
+                   | <nucleo>
+<sint-interrog>  ::= [PREP] INTERROG [<nominal>]
+<nucleo>         ::= [<sn>] <sv> [<sn>] [<sn>]
+<sv>             ::= [NEG] <verbo>
+<verbo>          ::= VERBO_PERIF PREP INF
+                   | VERBO
+<sn>             ::= PRON
+                   | [<determinante>] [NUM] <nominal>
+<determinante>   ::= ART | POS
+<nominal>        ::= SUST
+```
+
+Cada alternativa se elige mirando el token siguiente (y, solo en R12, uno más): no hay
+retroceso.
+
+| No terminal | Qué reconoce | Ejemplos |
+|---|---|---|
+| `<entrada>` | La frase completa. Los signos son opcionales al principio y al final, así se aceptan preguntas sin signos | "¿Cuándo llegan?", "cuando llegan" |
+| `<clausula>` | Una frase con o sin palabra interrogativa al principio | "¿Cuántas naves llegaron?", "Queremos paz" |
+| `<sint-interrog>` | La palabra interrogativa, con "a" delante y un nombre detrás opcionales | "a quién", "cuántas naves" |
+| `<nucleo>` | Como mucho un sintagma antes del verbo, el verbo y hasta dos después | S V O, V S, V O, V S O |
+| `<sv>` | El verbo con negación opcional | "no vimos" |
+| `<verbo>` | Un verbo conjugado o el futuro "ir a + infinitivo" | "enviaron", "van a llegar" |
+| `<sn>` | Un pronombre, o un nombre con determinante y número opcionales | "ustedes", "su planeta", "quince naves" |
+| `<determinante>` | Artículo o posesivo | "los", "nuestro" |
+| `<nominal>` | Un sustantivo en singular o plural | "paz", "naves" |
+
+### Reglas que no caben en la BNF
+
+La BNF dice qué secuencias son posibles; estas reglas deciden la concordancia, qué
+función tiene cada sintagma y cómo se llena el árbol.
+
+- **R1. Cantidades.** `NUM` debe estar entre 0 y 9 999 (constante `cantidadMaxima` del
+  analizador: es el alcance del proyecto, no una regla de la lengua). Si `NUM ≠ 1`, el
+  nombre va en plural ("quince naves", "0 naves"); con 1, en singular.
+- **R2. Determinante y nombre concuerdan en número**, según el rasgo `n` del artículo o
+  del posesivo: "los nave" o "nuestros mundo" son errores.
+- **R3. Sujeto antes del verbo.** Un `<sn>` delante del verbo es el sujeto y tiene que
+  concordar con él en persona y número. Para comparar se usa el rasgo `pv` del pronombre
+  si existe, y si no `p`: "ustedes" (`p=2`, `pv=3`) concuerda con "vienen" (3.ª plural) y
+  en el árbol queda como 2.ª persona. Un sustantivo cuenta como 3.ª persona.
+- **R4. Sintagmas detrás del verbo.** Si todavía no hay sujeto, el primero que concuerda
+  con el verbo es el sujeto ("¿Vienen ustedes?"); el otro es el objeto ("Queremos paz":
+  *paz* es 3.ª singular y no concuerda con 1.ª plural). Como mucho hay un objeto.
+- **R5. Función del interrogativo**, según el rasgo `f` de `vocab_es`:
+  `f=circunstancial` (cuándo, dónde) → circunstancial; `f=objeto` (qué) → objeto;
+  `f=sujeto` (quién, cuántos) → sujeto si no hay otro sujeto, no lleva `PREP` delante y
+  concuerda con el verbo, y si no, objeto. "¿Quién envió el mensaje?" → sujeto;
+  "¿A quién escuchan ustedes?" → objeto; "¿Cuántas naves llegaron?" → sujeto.
+- **R6. Lecturas ambiguas de la morfología.** Primero se quedan las lecturas del verbo
+  que concuerdan con el sujeto (explícito o interrogativo); si queda más de una, se usa la
+  primera en el orden de los datos ("enviamos" → presente). Si ninguna concuerda, es un
+  error de concordancia con su columna. Con los posesivos igual: "su" → primer candidato.
+- **R7. Sujeto omitido.** Si al final no hay sujeto, el sujeto es `.omitido` y la persona
+  y el número salen del verbo ("¿Cuándo llegan?" → 3.ª plural).
+- **R8. Tipo de oración.** Con `<sint-interrog>`, pregunta parcial. Si no, pregunta de
+  sí/no cuando hay algún `SIGNO` o cuando hay **inversión con pronombre**: el sujeto va
+  detrás del verbo y es un `PRON` ("vienen ustedes"). Si no, declarativa: "llegarán quince
+  naves" (señal 3, voz Ozh) tiene el sujeto detrás pero es un nombre, y es una afirmación.
+- **R9. Futuro con "ir a".** `VERBO_PERIF PREP INF` da el verbo del infinitivo, con la
+  persona y el número de "ir", tiempo `.futuro` y `perifrastico = true`. La construcción
+  está en los datos (`ir|a|perifrasis|t=presente`: el lema de la fila es la preposición
+  que exige), así "ir" y "a" no están escritos en el código. Solo vale con "ir" en el
+  tiempo de la fila: "fueron a ver" no es un futuro.
+- **R10. Negación.** `NEG` delante del verbo da polaridad negativa, también delante del
+  futuro con "ir a" ("no van a llegar").
+- **R11. Posesivos.** El poseedor es el pronombre del lema del posesivo ("nuestro" →
+  *nosotros*), con la persona y el número de la fila de ese pronombre.
+- **R12. Palabras que coinciden sin tildes.** Las claves no tienen tildes, así que "el" y
+  "él", "tu" y "tú" son la misma palabra. Si el token siguiente es `NUM` o `SUST`, es
+  `ART` o `POS`; si no, es `PRON` ("el mensaje" / "¿Es él…?"). Si una palabra tiene
+  lectura verbal y nominal, se prefiere la verbal cuando todavía no hay verbo.
+
+### Ejemplos de análisis
+
+| Entrada | Recorrido | Árbol |
+|---|---|---|
+| ¿Cuándo llegan? | SIGNO · sint-interrog(cuando) · nucleo(sv) · SIGNO | parcial(cuando, circunstancial) · S: omitido · V: llegar 3pl presente |
+| cuando llegan | sint-interrog(cuando) · nucleo(sv) | igual: la palabra interrogativa basta (R8) |
+| Queremos paz | nucleo(sv, sn) | declarativa · S: omitido · V: querer 1pl presente · O: paz (R4) |
+| vienen ustedes | nucleo(sv, sn=PRON) | pregunta sí/no (R8: inversión con pronombre) |
+| llegarán quince naves | nucleo(sv, sn) | declarativa · S: 15 nave+pl (R4, R8) |
+| ¿Quién envió el mensaje? | sint-interrog(quien) · nucleo(sv, sn) | parcial(quien, sujeto) · S: interrogativo · O: mensaje (R5) |
+| Ellos no van a llegar | nucleo(sn, sv(NEG, VERBO_PERIF PREP INF)) | V: llegar 3pl futuro (ir a) negativa (R9, R10) |
+| Ellos visitaron nuestro mundo | nucleo(sn, sv, sn(POS, SUST)) | O: mundo de(nosotros) (R11) |
+
 ## Autómata
 
 ## Modelo de datos
