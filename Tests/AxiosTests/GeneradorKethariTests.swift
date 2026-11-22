@@ -11,7 +11,7 @@ final class GeneradorKethariTests: XCTestCase {
             "yo": "an", "tu": "ul", "el": "ir", "nosotros": "anir", "nosotros incluyente": "anul",
             "ustedes": "ulesh", "ellos": "iresh", "ellas": "iresh",
             "nave": "kum", "mensaje": "ombra", "paz": "parn", "ciclo": "lun", "estrella": "sorin",
-            "territorio": "teka",
+            "territorio": "teka", "planeta": "vael", "hogar": "hosk",
             "llegar": "vin", "venir": "vin", "enviar": "sal", "querer": "thal", "esperar": "tep",
             "ver": "kor", "ser": "mi", "criatura": "yorr",
             "que": "kel", "cuando": "kom", "donde": "dor", "cuantos": "kai", "quien": "sem",
@@ -22,6 +22,7 @@ final class GeneradorKethariTests: XCTestCase {
             "sufijo_plural": "esh", "prefijo_negacion": "nu", "posicion_numero": "antes",
             "base": "6", "separador_numero": "-",
             "particula_pregunta": "ka", "posicion_interrogativo": "inicio",
+            "posicion_poseedor": "antes",
         ]],
         vocabulario: VocabPronombres.formas,
         vocabEs: VocabPronombres.filas
@@ -233,6 +234,50 @@ final class GeneradorKethariTests: XCTestCase {
         }
     }
 
+    // MARK: - Posesivos
+
+    /// "Ustedes ven nuestro planeta": el poseedor va delante del nombre.
+    func testPoseedorDelanteDelNombre() throws {
+        let o = Oracion(tipo: .declarativa, sujeto: .explicito(A.sn(A.ustedes)), verbo: A.verbo("ver", 2, plural: true, .presente), objeto: A.sust("planeta", de: A.nosotros))
+        XCTAssertEqual(try k(o), "ulesh anir vael kor")
+    }
+
+    /// El poseedor también puede ir en el sujeto: "Su nave llegó".
+    func testPoseedorEnElSujeto() throws {
+        let o = Oracion(tipo: .declarativa, sujeto: .explicito(A.sust("nave", de: A.el)), verbo: A.verbo("llegar", 3, plural: false, .pasado))
+        XCTAssertEqual(try k(o), "ir kum vinok")
+    }
+
+    /// Con número y poseedor: [número] [poseedor] nombre, como en la BNF del validador.
+    func testNumeroPoseedorYNombre() throws {
+        let o = Oracion(tipo: .declarativa, sujeto: .explicito(A.sust("nave", plural: true, cantidad: 15, de: A.ellos)), verbo: A.verbo("llegar", 3, plural: true, .pasado))
+        XCTAssertEqual(try k(o), "ra-sel iresh kumesh vinok")
+    }
+
+    /// La posición del poseedor sale de la regla `posicion_poseedor`.
+    func testPosicionDelPoseedorSaleDeLaRegla() throws {
+        var lexicon = Self.lexicon
+        lexicon.reglas[.kethari]?["posicion_poseedor"] = "despues"
+        let o = Oracion(tipo: .declarativa, sujeto: .explicito(A.sn(A.ustedes)), verbo: A.verbo("ver", 2, plural: true, .presente), objeto: A.sust("planeta", de: A.nosotros))
+        XCTAssertEqual(try k(o, lexicon), "ulesh vael anir kor")
+    }
+
+    // MARK: - anir / anul
+
+    /// Decisión (bitácora 2026-11-22): "nosotros" es siempre anir, sea sujeto explícito,
+    /// sujeto omitido o poseedor. anul no se genera: el español no da cómo distinguirlos.
+    func testNosotrosEsSiempreAnir() throws {
+        let explicito = Oracion(tipo: .declarativa, sujeto: .explicito(A.sn(A.nosotros)), verbo: A.verbo("esperar", 1, plural: true, .futuro))
+        let omitido = Oracion(tipo: .declarativa, sujeto: .omitido, verbo: A.verbo("querer", 1, plural: true, .presente), objeto: A.sust("paz"))
+        let poseedor = Oracion(tipo: .declarativa, sujeto: .explicito(A.sn(A.ellos)), verbo: A.verbo("ver", 3, plural: true, .pasado), objeto: A.sust("hogar", de: A.nosotros))
+        XCTAssertEqual(try k(explicito), "anir tepime")
+        XCTAssertEqual(try k(omitido), "anir parn thal")
+        XCTAssertEqual(try k(poseedor), "iresh anir hosk korok")
+        for frase in [try k(explicito), try k(omitido), try k(poseedor)] {
+            XCTAssertFalse(frase.split(separator: " ").contains("anul"), frase)
+        }
+    }
+
     // MARK: - Nunca inventa
 
     func testVerboSinTraduccionEsError() {
@@ -270,6 +315,8 @@ final class GeneradorKethariTests: XCTestCase {
             (Oracion(tipo: .preguntaSiNo, sujeto: .explicito(A.sn(A.el)), verbo: A.verbo("ser", 3, plural: false, .presente), objeto: A.sust("criatura")), "ir yorr mi ka"),
             (Oracion(tipo: .preguntaParcial(Interrogativo(lema: "cuando", funcion: .circunstancial)), sujeto: .explicito(A.sn(A.ustedes)), verbo: A.verbo("venir", 2, plural: true, .futuro)), "kom ulesh vinime ka"),
             (Oracion(tipo: .preguntaParcial(Interrogativo(lema: "quien", funcion: .sujeto)), sujeto: .interrogativo, verbo: A.verbo("enviar", 3, plural: false, .pasado), objeto: A.sust("mensaje")), "sem ombra salok ka"),
+            (Oracion(tipo: .declarativa, sujeto: .explicito(A.sn(A.ustedes)), verbo: A.verbo("ver", 2, plural: true, .presente), objeto: A.sust("planeta", de: A.nosotros)), "ulesh anir vael kor"),
+            (Oracion(tipo: .declarativa, sujeto: .explicito(A.sust("nave", plural: true, cantidad: 15, de: A.ellos)), verbo: A.verbo("llegar", 3, plural: true, .pasado)), "ra-sel iresh kumesh vinok"),
         ]
         for (oracion, esperada) in casos {
             let frase = try generador.generar(oracion)

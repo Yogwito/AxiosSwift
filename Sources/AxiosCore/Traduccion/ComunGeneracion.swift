@@ -50,10 +50,10 @@ struct BaseGenerador {
 
     /// Pone `palabra` antes o después de `nucleo` según una regla de posición
     /// (`posicion_numero`, `posicion_poseedor`), cuyo valor es "antes" o "despues".
-    func colocar(_ palabra: String, junto nucleo: String, regla clave: String) throws -> [String] {
+    func colocar(_ palabra: String, junto nucleo: [String], regla clave: String) throws -> [String] {
         switch BaseDatos.clave(try regla(clave)) {
-        case "antes": return [palabra, nucleo]
-        case "despues": return [nucleo, palabra]
+        case "antes": return [palabra] + nucleo
+        case "despues": return nucleo + [palabra]
         default: throw ErrorGeneracion.faltaRegla(clave, lengua)
         }
     }

@@ -48,7 +48,8 @@ public struct GeneradorKethari {
         }
     }
 
-    /// Sintagma nominal: [número] nombre[-plural]. Los pronombres plurales ya son
+    /// Sintagma nominal: [número] [poseedor] nombre[-plural] (con las posiciones de
+    /// `posicion_numero` y `posicion_poseedor`). Los pronombres plurales ya son
     /// palabras propias del léxico (ulesh, iresh) y no llevan sufijo.
     private func sintagma(_ sn: SN) throws -> [String] {
         switch sn.nucleo {
@@ -59,12 +60,21 @@ public struct GeneradorKethari {
             let enPlural = plural || (sn.cantidad ?? 0) > 1
             var nombre = try base.palabra(lema)
             if enPlural { nombre += try base.regla("sufijo_plural") }
-            guard let cantidad = sn.cantidad else { return [nombre] }
-            let numero = try ConversorNumeros(lexicon: base.lexicon, lengua: .kethari).convertir(cantidad)
-            return try base.colocar(numero, junto: nombre, regla: "posicion_numero")
+            var palabras = [nombre]
+            if let poseedor = sn.poseedor {
+                palabras = try base.colocar(try pronombre(poseedor), junto: palabras, regla: "posicion_poseedor")
+            }
+            if let cantidad = sn.cantidad {
+                let numero = try ConversorNumeros(lexicon: base.lexicon, lengua: .kethari).convertir(cantidad)
+                palabras = try base.colocar(numero, junto: palabras, regla: "posicion_numero")
+            }
+            return palabras
         }
     }
 
+    /// Pronombre personal (también el poseedor) por su lema en el léxico.
+    /// "nosotros" da siempre anir (excluyente): el español no distingue si el
+    /// oyente está incluido, así que anul no se genera (bitácora 2026-11-22).
     private func pronombre(_ p: Pronombre) throws -> String {
         try base.palabra(p.lema)
     }
