@@ -13,13 +13,43 @@ public enum ErrorGeneracion: Error, Equatable {
 struct BaseGenerador {
     let lexicon: Lexicon
     let lengua: Lengua
+    /// Si hay, las palabras sin respaldo se retienen aquí en vez de lanzar un error.
+    var retenidas: Retenidas?
 
-    /// Traducción de un lema español; si no hay, es un error (nunca se inventa).
+    init(lexicon: Lexicon, lengua: Lengua, retenidas: Retenidas? = nil) {
+        self.lexicon = lexicon
+        self.lengua = lengua
+        self.retenidas = retenidas
+    }
+
+    /// Traducción de un lema español. Si no hay, nunca se inventa: se retiene entre
+    /// corchetes (si se está reteniendo) o es un error.
     func palabra(_ lema: String) throws -> String {
-        guard let forma = lexicon.traduccion(es: lema, lengua: lengua, en: nil), !forma.isEmpty else {
-            throw ErrorGeneracion.sinTraduccion(lema, lengua)
+        if let forma = lexicon.traduccion(es: lema, lengua: lengua, en: nil), !forma.isEmpty {
+            return forma
         }
-        return forma
+        guard let retenidas else { throw ErrorGeneracion.sinTraduccion(lema, lengua) }
+        let enLexico = lexicon.traduccion(es: lema, lengua: .es, en: nil) != nil
+        return retenidas.retener(PalabraSinRespaldo(
+            palabra: lema, lengua: lengua, motivo: enLexico ? .sinFormaEnLaLengua : .noEstaEnElLexico
+        ))
+    }
+
+    /// Número escrito en la lengua; si no se puede, se retiene en cifras o es un error.
+    func numero(_ n: Int) throws -> String {
+        do {
+            return try ConversorNumeros(lexicon: lexicon, lengua: lengua).convertir(n)
+        } catch let error as ErrorNumero {
+            guard let retenidas else { throw error }
+            return retenidas.retener(PalabraSinRespaldo(palabra: String(n), lengua: lengua, motivo: .numero(error)))
+        }
+    }
+
+    /// Agrega un afijo a una forma, salvo que la forma esté retenida: la palabra
+    /// española queda tal cual para que se vea qué parte no es de la lengua destino.
+    func afijar(_ forma: String, _ afijo: () throws -> String, delante: Bool = false) rethrows -> String {
+        guard !Retenidas.esRetenida(forma) else { return forma }
+        return delante ? try afijo() + forma : forma + (try afijo())
     }
 
     /// Valor obligatorio de una regla.
@@ -60,13 +90,12 @@ struct BaseGenerador {
             // Un número mayor que 1 cuenta como plural aunque el árbol no lo marque.
             let enPlural = plural || (sn.cantidad ?? 0) > 1
             let nombre = try palabra(lema)
-            var palabras = [enPlural ? try pluralizar(nombre) : nombre]
+            var palabras = [enPlural && !Retenidas.esRetenida(nombre) ? try pluralizar(nombre) : nombre]
             if let poseedor = sn.poseedor {
                 palabras = try colocar(try palabra(poseedor.lema), junto: palabras, regla: "posicion_poseedor")
             }
             if let cantidad = sn.cantidad {
-                let numero = try ConversorNumeros(lexicon: lexicon, lengua: lengua).convertir(cantidad)
-                palabras = try colocar(numero, junto: palabras, regla: "posicion_numero")
+                palabras = try colocar(try numero(cantidad), junto: palabras, regla: "posicion_numero")
             }
             return palabras
         }
