@@ -658,6 +658,33 @@ La pregunta parcial lleva el interrogativo como valor asociado del tipo, así no
 construir una pregunta parcial sin interrogativo ni una declarativa con uno. El contrato
 completo, con reglas y ejemplos para los generadores, está en `docs/contrato-arbol.md`.
 
+## Retrotraducción
+
+`Retrotraductor` (`Sources/AxiosCore/Retrotraduccion/Retrotraductor.swift`) devuelve al
+español una frase en Kethari u Ozh. Sirve para comprobar qué se va a transmitir y qué se
+creía en una fecha que significaba cada palabra.
+
+1. Valida la frase con `validarKethari` / `validarOzh`. Si no es válida, no se
+   retrotraduce: se devuelve el motivo y la columna.
+2. Lee la estructura que da el validador (`[INT kom] [S ulesh] [V vinime] [PREG]`).
+3. Busca cada palabra con `significados(forma:lengua:en:)`, en la fecha pedida o con lo
+   vigente. Los afijos (plural, negación, tiempo, pregunta) y las marcas de tiempo salen de
+   las reglas; los números se leen en la base de cada lengua.
+4. Arma una glosa en orden español: interrogativo · sujeto · verbo · objeto.
+
+| Lengua | Frase | Retrotraducción |
+|---|---|---|
+| Kethari | kom ulesh vinime ka | ¿cuándo · ustedes · llegar/venir [futuro]? |
+| Kethari | ra-sel kumesh vinok | 15 nave · llegar/venir [pasado] |
+| Kethari | anir ulesh nukorok | nosotros · no ver [pasado] · ustedes |
+| Ozh | ʔasur mar shavi wem | ¿cuándo · ustedes · llegar/venir [mar]? |
+| Ozh | ʔoka kesh zi oruvi thüm ʔenka | ellas/ellos · visitar [pasado] · mundo/planeta de nosotros/nosotros incluyente [zi] |
+
+Es una glosa y no español conjugado: con varios significados se muestran todos
+("llegar/venir") y la partícula de Ozh queda entre corchetes, como en el decodificador,
+porque su significado no está en los datos. Con fecha, "iresh tekaesh nuthal" da
+"tierra" antes de la corrección de la semana 2 y "territorio reclamado" después.
+
 ## Análisis de errores
 
 ## Declaración de uso de IA
