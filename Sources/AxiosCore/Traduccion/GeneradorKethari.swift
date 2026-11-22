@@ -48,28 +48,10 @@ public struct GeneradorKethari {
         }
     }
 
-    /// Sintagma nominal: [número] [poseedor] nombre[-plural] (con las posiciones de
-    /// `posicion_numero` y `posicion_poseedor`). Los pronombres plurales ya son
-    /// palabras propias del léxico (ulesh, iresh) y no llevan sufijo.
+    /// Sintagma nominal: [número] [poseedor] nombre[-plural]. Regla 3.3.5: un número
+    /// mayor que 1 exige el sufijo de plural en el nombre.
     private func sintagma(_ sn: SN) throws -> [String] {
-        switch sn.nucleo {
-        case .pronombre(let p):
-            return [try pronombre(p)]
-        case .sustantivo(let lema, let plural):
-            // Regla 3.3.5: un número mayor que 1 exige plural en el nombre.
-            let enPlural = plural || (sn.cantidad ?? 0) > 1
-            var nombre = try base.palabra(lema)
-            if enPlural { nombre += try base.regla("sufijo_plural") }
-            var palabras = [nombre]
-            if let poseedor = sn.poseedor {
-                palabras = try base.colocar(try pronombre(poseedor), junto: palabras, regla: "posicion_poseedor")
-            }
-            if let cantidad = sn.cantidad {
-                let numero = try ConversorNumeros(lexicon: base.lexicon, lengua: .kethari).convertir(cantidad)
-                palabras = try base.colocar(numero, junto: palabras, regla: "posicion_numero")
-            }
-            return palabras
-        }
+        try base.sintagma(sn) { nombre in nombre + (try base.regla("sufijo_plural")) }
     }
 
     /// Pronombre personal (también el poseedor) por su lema en el léxico.

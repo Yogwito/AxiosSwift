@@ -48,6 +48,30 @@ struct BaseGenerador {
         throw ErrorGeneracion.sinTraduccion("pronombre \(persona)\(numero)", lengua)
     }
 
+    /// Sintagma nominal: número, poseedor y nombre, cada uno donde digan
+    /// `posicion_numero` y `posicion_poseedor`. Cómo se marca el plural depende de
+    /// la lengua, así que lo decide `pluralizar` (Kethari agrega un sufijo, Ozh nada).
+    /// Los pronombres plurales ya son palabras propias del léxico (ulesh, shavi).
+    func sintagma(_ sn: SN, pluralizar: (String) throws -> String) throws -> [String] {
+        switch sn.nucleo {
+        case .pronombre(let p):
+            return [try palabra(p.lema)]
+        case .sustantivo(let lema, let plural):
+            // Un número mayor que 1 cuenta como plural aunque el árbol no lo marque.
+            let enPlural = plural || (sn.cantidad ?? 0) > 1
+            let nombre = try palabra(lema)
+            var palabras = [enPlural ? try pluralizar(nombre) : nombre]
+            if let poseedor = sn.poseedor {
+                palabras = try colocar(try palabra(poseedor.lema), junto: palabras, regla: "posicion_poseedor")
+            }
+            if let cantidad = sn.cantidad {
+                let numero = try ConversorNumeros(lexicon: lexicon, lengua: lengua).convertir(cantidad)
+                palabras = try colocar(numero, junto: palabras, regla: "posicion_numero")
+            }
+            return palabras
+        }
+    }
+
     /// Pone `palabra` antes o después de `nucleo` según una regla de posición
     /// (`posicion_numero`, `posicion_poseedor`), cuyo valor es "antes" o "despues".
     func colocar(_ palabra: String, junto nucleo: [String], regla clave: String) throws -> [String] {

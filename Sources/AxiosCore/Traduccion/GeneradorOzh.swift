@@ -74,13 +74,12 @@ public struct GeneradorOzh {
         }
     }
 
+    /// Sintagma nominal: [número] nombre [poseedor]. Ozh no marca el plural
+    /// (`plural = no`): "quince naves" es "ois-ulo gor", con el nombre igual.
     private func sintagma(_ sn: SN) throws -> [String] {
-        switch sn.nucleo {
-        case .pronombre(let p):
-            return [try base.palabra(p.lema)]
-        case .sustantivo(let lema, _):
-            return [try base.palabra(lema)]
-        }
+        let marcaPlural = BaseDatos.clave(try base.regla("plural")) != "no"
+        guard !marcaPlural else { throw ErrorGeneracion.faltaRegla("plural", .ozh) }
+        return try base.sintagma(sn) { nombre in nombre }
     }
 
     /// Raíz del verbo; en cualquier pregunta (sí/no o parcial) lleva `prefijo_pregunta`.

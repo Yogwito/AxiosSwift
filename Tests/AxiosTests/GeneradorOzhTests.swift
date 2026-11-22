@@ -12,7 +12,10 @@ final class GeneradorOzhTests: XCTestCase {
             "ustedes": "shavi", "ellos": "oruvi", "ellas": "oruvi",
             "nave": "gor", "mensaje": "vesh", "paz": "ilu", "ciclo": "drüm",
             "llegar": "sur", "venir": "sur", "enviar": "dra", "querer": "lom", "esperar": "bo",
-            "hablar": "tal", "ver": "ʔim", "escuchar": "nem",
+            "hablar": "tal", "ver": "ʔim", "escuchar": "nem", "visitar": "kesh",
+            "mundo": "thüm", "planeta": "thüm", "estrella": "ral",
+            "0": "zu", "1": "ois", "2": "dav", "3": "kru", "4": "fem",
+            "5": "ulo", "6": "sab", "7": "nir", "8": "tok", "9": "hev",
             "que": "wu", "cuando": "wem", "donde": "wor", "cuantos": "wak", "quien": "wis",
         ]],
         reglas: [.ozh: [
@@ -20,6 +23,8 @@ final class GeneradorOzhTests: XCTestCase {
             "particula_afirmacion": "zi", "particula_pregunta": "mar",
             "marca_pasado": "ʔoka", "marca_futuro": "venu", "negacion": "ne",
             "prefijo_pregunta": "ʔa", "posicion_interrogativo": "final",
+            "plural": "no", "posicion_numero": "antes", "posicion_poseedor": "despues",
+            "base": "10", "separador_numero": "-",
         ]],
         vocabulario: VocabPronombres.formas,
         vocabEs: VocabPronombres.filas
@@ -198,6 +203,48 @@ final class GeneradorOzhTests: XCTestCase {
         }
     }
 
+    // MARK: - Cantidades sin plural
+
+    /// "Llegarán quince naves" (señal 3): número delante y el nombre sin plural.
+    func testCantidadSinPlural() throws {
+        let f = Oracion(tipo: .declarativa, sujeto: .explicito(A.sust("nave", plural: true, cantidad: 15)), verbo: A.verbo("llegar", 3, plural: true, .futuro))
+        XCTAssertEqual(try o(f), "venu sur zi ois-ulo gor")
+    }
+
+    /// "Yo espero seis ciclos" (señal 7): seis es una sola cifra en base 10.
+    func testCantidadEnElObjeto() throws {
+        let f = Oracion(tipo: .declarativa, sujeto: .explicito(A.sn(A.yo)), verbo: A.verbo("esperar", 1, plural: false, .presente), objeto: A.sust("ciclo", plural: true, cantidad: 6))
+        XCTAssertEqual(try o(f), "bo zi ʔen sab drüm")
+    }
+
+    /// Un nombre plural sin número tampoco cambia: Ozh no marca el plural.
+    func testNombrePluralSinCambio() throws {
+        let f = Oracion(tipo: .declarativa, sujeto: .explicito(A.sn(A.ellos)), verbo: A.verbo("ver", 3, plural: true, .presente), objeto: A.sust("estrella", plural: true))
+        XCTAssertEqual(try o(f), "ʔim zi oruvi ral")
+    }
+
+    // MARK: - Posesivos detrás
+
+    /// "Antes ellos visitaron nuestro mundo" (señal 8): el poseedor va detrás del nombre.
+    func testPoseedorDetras() throws {
+        let f = Oracion(tipo: .declarativa, sujeto: .explicito(A.sn(A.ellos)), verbo: A.verbo("visitar", 3, plural: true, .pasado), objeto: A.sust("mundo", de: A.nosotros))
+        XCTAssertEqual(try o(f), "ʔoka kesh zi oruvi thüm ʔenka")
+    }
+
+    /// Con número y poseedor: [número] nombre [poseedor], como en la BNF del validador.
+    func testNumeroNombrePoseedor() throws {
+        let f = Oracion(tipo: .declarativa, sujeto: .explicito(A.sust("nave", plural: true, cantidad: 15, de: A.ellos)), verbo: A.verbo("llegar", 3, plural: true, .pasado))
+        XCTAssertEqual(try o(f), "ʔoka sur zi ois-ulo gor oruvi")
+    }
+
+    /// La posición del poseedor sale de la regla `posicion_poseedor`.
+    func testPosicionDelPoseedorSaleDeLaRegla() throws {
+        var lexicon = Self.lexicon
+        lexicon.reglas[.ozh]?["posicion_poseedor"] = "antes"
+        let f = Oracion(tipo: .declarativa, sujeto: .explicito(A.sn(A.ellos)), verbo: A.verbo("visitar", 3, plural: true, .pasado), objeto: A.sust("mundo", de: A.nosotros))
+        XCTAssertEqual(try o(f, lexicon), "ʔoka kesh zi oruvi ʔenka thüm")
+    }
+
     func testVerboSinTraduccionEsError() {
         let f = Oracion(tipo: .declarativa, sujeto: .explicito(A.sn(A.yo)), verbo: A.verbo("correr", 1, plural: false, .presente))
         XCTAssertThrowsError(try o(f)) { error in
@@ -230,6 +277,9 @@ final class GeneradorOzhTests: XCTestCase {
             (Oracion(tipo: .preguntaParcial(Interrogativo(lema: "cuando", funcion: .circunstancial)), sujeto: .explicito(A.sn(A.ustedes)), verbo: A.verbo("venir", 2, plural: true, .presente)), "ʔasur mar shavi wem"),
             (Oracion(tipo: .preguntaParcial(Interrogativo(lema: "quien", funcion: .sujeto)), sujeto: .interrogativo, verbo: A.verbo("enviar", 3, plural: false, .pasado), objeto: A.sust("mensaje")), "ʔoka ʔadra mar vesh wis"),
             (Oracion(tipo: .preguntaSiNo, sujeto: .explicito(A.sn(A.ellos)), verbo: A.verbo("querer", 3, plural: true, .presente), objeto: A.sust("paz")), "ʔalom mar oruvi ilu"),
+            (Oracion(tipo: .declarativa, sujeto: .explicito(A.sust("nave", plural: true, cantidad: 15)), verbo: A.verbo("llegar", 3, plural: true, .futuro)), "venu sur zi ois-ulo gor"),
+            (Oracion(tipo: .declarativa, sujeto: .explicito(A.sn(A.yo)), verbo: A.verbo("esperar", 1, plural: false, .presente), objeto: A.sust("ciclo", plural: true, cantidad: 6)), "bo zi ʔen sab drüm"),
+            (Oracion(tipo: .declarativa, sujeto: .explicito(A.sn(A.ellos)), verbo: A.verbo("visitar", 3, plural: true, .pasado), objeto: A.sust("mundo", de: A.nosotros)), "ʔoka kesh zi oruvi thüm ʔenka"),
         ]
         for (oracion, esperada) in casos {
             let frase = try generador.generar(oracion)
