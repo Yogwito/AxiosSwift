@@ -16,8 +16,12 @@ public struct GeneradorOzh {
         let sujeto = try self.sujeto(oracion)
         let objeto = try oracion.objeto.map { try sintagma($0) } ?? []
         // La partícula es obligatoria y va justo después del verbo.
-        let verbo = [try self.verbo(oracion.verbo), try particula(oracion.tipo)]
-        let cuerpo = try base.ordenar(sujeto: sujeto, objeto: objeto, verbo: verbo)
+        let verbo = [try self.verbo(oracion.verbo, pregunta: oracion.tipo != .declarativa), try particula(oracion.tipo)]
+        var cuerpo = try base.ordenar(sujeto: sujeto, objeto: objeto, verbo: verbo)
+        if let interrogativo = oracion.interrogativo {
+            // El interrogativo va donde diga `posicion_interrogativo` (final en Ozh).
+            cuerpo = try base.colocarInterrogativo(try base.palabra(interrogativo.lema), en: cuerpo)
+        }
         return (try inicio(oracion.verbo) + cuerpo).joined(separator: " ")
     }
 
@@ -56,12 +60,15 @@ public struct GeneradorOzh {
 
     // MARK: - Constituyentes
 
-    /// Ozh exige sujeto: si está omitido se repone con la persona y el número del verbo.
+    /// Ozh exige sujeto: si está omitido se repone con la persona y el número del
+    /// verbo. Si el sujeto es el propio interrogativo ("¿Quién…?"), ya lo pone `generar`.
     private func sujeto(_ oracion: Oracion) throws -> [String] {
         switch oracion.sujeto {
         case .explicito(let sn):
             return try sintagma(sn)
-        case .omitido, .interrogativo:
+        case .interrogativo:
+            return []
+        case .omitido:
             let rasgos = oracion.verbo.rasgos
             return [try base.palabra(base.pronombre(persona: rasgos.persona, plural: rasgos.plural).lema)]
         }
@@ -76,7 +83,9 @@ public struct GeneradorOzh {
         }
     }
 
-    private func verbo(_ v: NodoVerbo) throws -> String {
-        try base.palabra(v.rasgos.raiz)
+    /// Raíz del verbo; en cualquier pregunta (sí/no o parcial) lleva `prefijo_pregunta`.
+    private func verbo(_ v: NodoVerbo, pregunta: Bool) throws -> String {
+        let raiz = try base.palabra(v.rasgos.raiz)
+        return pregunta ? try base.regla("prefijo_pregunta") + raiz : raiz
     }
 }

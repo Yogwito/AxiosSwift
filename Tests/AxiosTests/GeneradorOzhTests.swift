@@ -12,12 +12,14 @@ final class GeneradorOzhTests: XCTestCase {
             "ustedes": "shavi", "ellos": "oruvi", "ellas": "oruvi",
             "nave": "gor", "mensaje": "vesh", "paz": "ilu", "ciclo": "drüm",
             "llegar": "sur", "venir": "sur", "enviar": "dra", "querer": "lom", "esperar": "bo",
-            "hablar": "tal", "ver": "ʔim",
+            "hablar": "tal", "ver": "ʔim", "escuchar": "nem",
+            "que": "wu", "cuando": "wem", "donde": "wor", "cuantos": "wak", "quien": "wis",
         ]],
         reglas: [.ozh: [
             "orden": "VSO", "particulas": "zi,mar,tho",
             "particula_afirmacion": "zi", "particula_pregunta": "mar",
             "marca_pasado": "ʔoka", "marca_futuro": "venu", "negacion": "ne",
+            "prefijo_pregunta": "ʔa", "posicion_interrogativo": "final",
         ]],
         vocabulario: VocabPronombres.formas,
         vocabEs: VocabPronombres.filas
@@ -137,6 +139,65 @@ final class GeneradorOzhTests: XCTestCase {
         XCTAssertEqual(try o(f), "ʔoka ne ʔim zi ʔenka gor")
     }
 
+    // MARK: - Preguntas
+
+    private func parcial(_ lema: String, _ funcion: FuncionInterrogativo) -> TipoOracion {
+        .preguntaParcial(Interrogativo(lema: lema, funcion: funcion))
+    }
+
+    /// "¿Cuándo vienen ustedes?" (señal 5): ʔa- en el verbo, mar, e interrogativo al final.
+    func testPreguntaParcialInterrogativoAlFinal() throws {
+        let f = Oracion(tipo: parcial("cuando", .circunstancial), sujeto: .explicito(A.sn(A.ustedes)), verbo: A.verbo("venir", 2, plural: true, .presente))
+        XCTAssertEqual(try o(f), "ʔasur mar shavi wem")
+    }
+
+    /// "¿A quién escuchan ustedes?" (señal 9, que trae tho; aquí mar por la decisión de la partícula).
+    func testInterrogativoObjeto() throws {
+        let f = Oracion(tipo: parcial("quien", .objeto), sujeto: .explicito(A.sn(A.ustedes)), verbo: A.verbo("escuchar", 2, plural: true, .presente))
+        XCTAssertEqual(try o(f), "ʔanem mar shavi wis")
+    }
+
+    /// La pregunta de sí/no también lleva el prefijo de pregunta y mar, sin interrogativo.
+    func testPreguntaSiNo() throws {
+        let f = Oracion(tipo: .preguntaSiNo, sujeto: .explicito(A.sn(A.ellos)), verbo: A.verbo("querer", 3, plural: true, .presente), objeto: A.sust("paz"))
+        XCTAssertEqual(try o(f), "ʔalom mar oruvi ilu")
+    }
+
+    /// "¿Quién envió el mensaje?": el interrogativo es el sujeto, no se repone otro.
+    func testInterrogativoSujeto() throws {
+        let f = Oracion(tipo: parcial("quien", .sujeto), sujeto: .interrogativo, verbo: A.verbo("enviar", 3, plural: false, .pasado), objeto: A.sust("mensaje"))
+        XCTAssertEqual(try o(f), "ʔoka ʔadra mar vesh wis")
+    }
+
+    /// "¿Cuándo llegan?": sujeto omitido repuesto, y la marca de tiempo sigue al inicio.
+    func testPreguntaConSujetoOmitidoYFuturo() throws {
+        let f = Oracion(tipo: parcial("cuando", .circunstancial), sujeto: .omitido, verbo: A.verbo("llegar", 3, plural: true, .futuro))
+        XCTAssertEqual(try o(f), "venu ʔasur mar oruvi wem")
+    }
+
+    /// Pregunta negativa: ne delante del verbo con prefijo.
+    func testPreguntaNegativa() throws {
+        let f = Oracion(tipo: .preguntaSiNo, sujeto: .explicito(A.sn(A.ustedes)), verbo: A.verbo("hablar", 2, plural: true, .presente, negado: true))
+        XCTAssertEqual(try o(f), "ne ʔatal mar shavi")
+    }
+
+    /// La posición del interrogativo sale de la regla `posicion_interrogativo`.
+    func testPosicionDelInterrogativoSaleDeLaRegla() throws {
+        var lexicon = Self.lexicon
+        lexicon.reglas[.ozh]?["posicion_interrogativo"] = "inicio"
+        let f = Oracion(tipo: parcial("cuando", .circunstancial), sujeto: .explicito(A.sn(A.ustedes)), verbo: A.verbo("venir", 2, plural: true, .presente))
+        XCTAssertEqual(try o(f, lexicon), "wem ʔasur mar shavi")
+    }
+
+    func testFaltaPrefijoDePreguntaEsError() {
+        var lexicon = Self.lexicon
+        lexicon.reglas[.ozh]?["prefijo_pregunta"] = nil
+        let f = Oracion(tipo: .preguntaSiNo, sujeto: .explicito(A.sn(A.ustedes)), verbo: A.verbo("hablar", 2, plural: true, .presente))
+        XCTAssertThrowsError(try o(f, lexicon)) { error in
+            XCTAssertEqual(error as? ErrorGeneracion, .faltaRegla("prefijo_pregunta", .ozh))
+        }
+    }
+
     func testVerboSinTraduccionEsError() {
         let f = Oracion(tipo: .declarativa, sujeto: .explicito(A.sn(A.yo)), verbo: A.verbo("correr", 1, plural: false, .presente))
         XCTAssertThrowsError(try o(f)) { error in
@@ -166,6 +227,9 @@ final class GeneradorOzhTests: XCTestCase {
             (Oracion(tipo: .declarativa, sujeto: .explicito(A.sn(A.ellos)), verbo: A.verbo("llegar", 3, plural: true, .futuro)), "venu sur zi oruvi"),
             (Oracion(tipo: .declarativa, sujeto: .explicito(A.sn(A.ellos)), verbo: A.verbo("querer", 3, plural: true, .presente, negado: true), objeto: A.sust("paz")), "ne lom zi oruvi ilu"),
             (Oracion(tipo: .declarativa, sujeto: .explicito(A.sn(A.nosotros)), verbo: A.verbo("ver", 1, plural: true, .pasado, negado: true), objeto: A.sust("nave")), "ʔoka ne ʔim zi ʔenka gor"),
+            (Oracion(tipo: .preguntaParcial(Interrogativo(lema: "cuando", funcion: .circunstancial)), sujeto: .explicito(A.sn(A.ustedes)), verbo: A.verbo("venir", 2, plural: true, .presente)), "ʔasur mar shavi wem"),
+            (Oracion(tipo: .preguntaParcial(Interrogativo(lema: "quien", funcion: .sujeto)), sujeto: .interrogativo, verbo: A.verbo("enviar", 3, plural: false, .pasado), objeto: A.sust("mensaje")), "ʔoka ʔadra mar vesh wis"),
+            (Oracion(tipo: .preguntaSiNo, sujeto: .explicito(A.sn(A.ellos)), verbo: A.verbo("querer", 3, plural: true, .presente), objeto: A.sust("paz")), "ʔalom mar oruvi ilu"),
         ]
         for (oracion, esperada) in casos {
             let frase = try generador.generar(oracion)
