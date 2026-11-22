@@ -6,12 +6,22 @@ import Foundation
 /// afijos de las reglas de Kethari (`orden`, `sufijo_pasado`, `sufijo_futuro`).
 /// Aquí no hay ninguna palabra ni afijo escrito.
 public struct GeneradorKethari {
-    let base: BaseGenerador
+    var base: BaseGenerador
 
     public init(lexicon: Lexicon) {
         base = BaseGenerador(lexicon: lexicon, lengua: .kethari)
     }
 
+    /// Como `generar`, pero una palabra sin respaldo no detiene la traducción: queda
+    /// en español entre corchetes y se explica en `sinRespaldo`. Nunca se inventa.
+    public func traducir(_ oracion: Oracion) throws -> Traduccion {
+        let retenidas = Retenidas()
+        var copia = self
+        copia.base.retenidas = retenidas
+        return Traduccion(texto: try copia.generar(oracion), sinRespaldo: retenidas.palabras)
+    }
+
+    /// La frase en Kethari; una palabra sin respaldo es un error.
     public func generar(_ oracion: Oracion) throws -> String {
         let sujeto = try self.sujeto(oracion)
         let objeto = try oracion.objeto.map { try sintagma($0) } ?? []
@@ -66,10 +76,10 @@ public struct GeneradorKethari {
         var forma = try base.palabra(v.rasgos.raiz)
         switch v.rasgos.tiempo {
         case .presente: break
-        case .pasado: forma += try base.regla("sufijo_pasado")
-        case .futuro: forma += try base.regla("sufijo_futuro")
+        case .pasado: forma = try base.afijar(forma) { try base.regla("sufijo_pasado") }
+        case .futuro: forma = try base.afijar(forma) { try base.regla("sufijo_futuro") }
         }
-        if v.negado { forma = try base.regla("prefijo_negacion") + forma }
+        if v.negado { forma = try base.afijar(forma, { try base.regla("prefijo_negacion") }, delante: true) }
         return forma
     }
 }

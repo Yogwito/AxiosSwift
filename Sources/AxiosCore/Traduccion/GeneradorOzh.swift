@@ -6,12 +6,22 @@ import Foundation
 /// partículas y las marcas de las reglas de Ozh. Aquí no hay ninguna palabra,
 /// partícula ni marca escrita.
 public struct GeneradorOzh {
-    let base: BaseGenerador
+    var base: BaseGenerador
 
     public init(lexicon: Lexicon) {
         base = BaseGenerador(lexicon: lexicon, lengua: .ozh)
     }
 
+    /// Como `generar`, pero una palabra sin respaldo no detiene la traducción: queda
+    /// en español entre corchetes y se explica en `sinRespaldo`. Nunca se inventa.
+    public func traducir(_ oracion: Oracion) throws -> Traduccion {
+        let retenidas = Retenidas()
+        var copia = self
+        copia.base.retenidas = retenidas
+        return Traduccion(texto: try copia.generar(oracion), sinRespaldo: retenidas.palabras)
+    }
+
+    /// La frase en Ozh; una palabra sin respaldo es un error.
     public func generar(_ oracion: Oracion) throws -> String {
         let sujeto = try self.sujeto(oracion)
         let objeto = try oracion.objeto.map { try sintagma($0) } ?? []
@@ -85,6 +95,6 @@ public struct GeneradorOzh {
     /// Raíz del verbo; en cualquier pregunta (sí/no o parcial) lleva `prefijo_pregunta`.
     private func verbo(_ v: NodoVerbo, pregunta: Bool) throws -> String {
         let raiz = try base.palabra(v.rasgos.raiz)
-        return pregunta ? try base.regla("prefijo_pregunta") + raiz : raiz
+        return pregunta ? try base.afijar(raiz, { try base.regla("prefijo_pregunta") }, delante: true) : raiz
     }
 }
