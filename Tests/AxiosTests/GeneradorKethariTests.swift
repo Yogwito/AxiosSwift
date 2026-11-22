@@ -13,13 +13,15 @@ final class GeneradorKethariTests: XCTestCase {
             "nave": "kum", "mensaje": "ombra", "paz": "parn", "ciclo": "lun", "estrella": "sorin",
             "territorio": "teka",
             "llegar": "vin", "venir": "vin", "enviar": "sal", "querer": "thal", "esperar": "tep",
-            "ver": "kor",
+            "ver": "kor", "ser": "mi", "criatura": "yorr",
+            "que": "kel", "cuando": "kom", "donde": "dor", "cuantos": "kai", "quien": "sem",
             "0": "vo", "1": "ti", "2": "ra", "3": "sel", "4": "mok", "5": "pai",
         ]],
         reglas: [.kethari: [
             "orden": "SOV", "sufijo_pasado": "ok", "sufijo_futuro": "ime",
             "sufijo_plural": "esh", "prefijo_negacion": "nu", "posicion_numero": "antes",
             "base": "6", "separador_numero": "-",
+            "particula_pregunta": "ka", "posicion_interrogativo": "inicio",
         ]],
         vocabulario: VocabPronombres.formas,
         vocabEs: VocabPronombres.filas
@@ -174,6 +176,63 @@ final class GeneradorKethariTests: XCTestCase {
         XCTAssertEqual(try k(o), "anir ulesh nukorok")
     }
 
+    // MARK: - Preguntas
+
+    private func parcial(_ lema: String, _ funcion: FuncionInterrogativo) -> TipoOracion {
+        .preguntaParcial(Interrogativo(lema: lema, funcion: funcion))
+    }
+
+    /// "¿Es él una criatura?" (señal 9): pregunta de sí/no con ka al final.
+    func testPreguntaSiNoTerminaEnKa() throws {
+        let o = Oracion(tipo: .preguntaSiNo, sujeto: .explicito(A.sn(A.el)), verbo: A.verbo("ser", 3, plural: false, .presente), objeto: A.sust("criatura"))
+        XCTAssertEqual(try k(o), "ir yorr mi ka")
+    }
+
+    /// "¿Cuándo vendrán ustedes?" (señal 5): interrogativo al inicio y ka al final.
+    func testPreguntaParcialInterrogativoAlInicio() throws {
+        let o = Oracion(tipo: parcial("cuando", .circunstancial), sujeto: .explicito(A.sn(A.ustedes)), verbo: A.verbo("venir", 2, plural: true, .futuro))
+        XCTAssertEqual(try k(o), "kom ulesh vinime ka")
+    }
+
+    /// "¿Quién envió el mensaje?" (señal 6): el interrogativo es el sujeto, no se repone otro.
+    func testInterrogativoSujeto() throws {
+        let o = Oracion(tipo: parcial("quien", .sujeto), sujeto: .interrogativo, verbo: A.verbo("enviar", 3, plural: false, .pasado), objeto: A.sust("mensaje"))
+        XCTAssertEqual(try k(o), "sem ombra salok ka")
+    }
+
+    /// "¿Cuándo llegan?": sujeto omitido, se repone igual que en una afirmación.
+    func testPreguntaConSujetoOmitido() throws {
+        let o = Oracion(tipo: parcial("cuando", .circunstancial), sujeto: .omitido, verbo: A.verbo("llegar", 3, plural: true, .presente))
+        XCTAssertEqual(try k(o), "kom iresh vin ka")
+    }
+
+    /// "¿Cuántas naves llegaron?": kai va al inicio y el nombre queda en plural.
+    func testCuantosConNombre() throws {
+        let o = Oracion(tipo: parcial("cuantos", .sujeto), sujeto: .explicito(A.sust("nave", plural: true)), verbo: A.verbo("llegar", 3, plural: true, .pasado))
+        XCTAssertEqual(try k(o), "kai kumesh vinok ka")
+    }
+
+    /// Una pregunta negativa: "¿No quieren paz ellos?".
+    func testPreguntaNegativa() throws {
+        let o = Oracion(tipo: .preguntaSiNo, sujeto: .explicito(A.sn(A.ellos)), verbo: A.verbo("querer", 3, plural: true, .presente, negado: true), objeto: A.sust("paz"))
+        XCTAssertEqual(try k(o), "iresh parn nuthal ka")
+    }
+
+    /// La posición del interrogativo sale de la regla `posicion_interrogativo`.
+    func testPosicionDelInterrogativoSaleDeLaRegla() throws {
+        var lexicon = Self.lexicon
+        lexicon.reglas[.kethari]?["posicion_interrogativo"] = "final"
+        let o = Oracion(tipo: parcial("cuando", .circunstancial), sujeto: .explicito(A.sn(A.ustedes)), verbo: A.verbo("venir", 2, plural: true, .futuro))
+        XCTAssertEqual(try k(o, lexicon), "ulesh vinime kom ka")
+    }
+
+    func testInterrogativoSinTraduccionEsError() {
+        let o = Oracion(tipo: parcial("como", .circunstancial), sujeto: .explicito(A.sn(A.ustedes)), verbo: A.verbo("venir", 2, plural: true, .presente))
+        XCTAssertThrowsError(try k(o)) { error in
+            XCTAssertEqual(error as? ErrorGeneracion, .sinTraduccion("como", .kethari))
+        }
+    }
+
     // MARK: - Nunca inventa
 
     func testVerboSinTraduccionEsError() {
@@ -208,6 +267,9 @@ final class GeneradorKethariTests: XCTestCase {
             (Oracion(tipo: .declarativa, sujeto: .explicito(A.sust("nave", plural: true, cantidad: 15)), verbo: A.verbo("llegar", 3, plural: true, .pasado)), "ra-sel kumesh vinok"),
             (Oracion(tipo: .declarativa, sujeto: .explicito(A.sn(A.nosotros)), verbo: A.verbo("ver", 1, plural: true, .pasado), objeto: A.sust("estrella", plural: true, cantidad: 26)), "anir mok-ra sorinesh korok"),
             (Oracion(tipo: .declarativa, sujeto: .explicito(A.sn(A.ellos)), verbo: A.verbo("querer", 3, plural: true, .presente, negado: true), objeto: A.sust("paz")), "iresh parn nuthal"),
+            (Oracion(tipo: .preguntaSiNo, sujeto: .explicito(A.sn(A.el)), verbo: A.verbo("ser", 3, plural: false, .presente), objeto: A.sust("criatura")), "ir yorr mi ka"),
+            (Oracion(tipo: .preguntaParcial(Interrogativo(lema: "cuando", funcion: .circunstancial)), sujeto: .explicito(A.sn(A.ustedes)), verbo: A.verbo("venir", 2, plural: true, .futuro)), "kom ulesh vinime ka"),
+            (Oracion(tipo: .preguntaParcial(Interrogativo(lema: "quien", funcion: .sujeto)), sujeto: .interrogativo, verbo: A.verbo("enviar", 3, plural: false, .pasado), objeto: A.sust("mensaje")), "sem ombra salok ka"),
         ]
         for (oracion, esperada) in casos {
             let frase = try generador.generar(oracion)

@@ -58,6 +58,16 @@ struct BaseGenerador {
         }
     }
 
+    /// Pone el interrogativo al principio o al final de la frase según
+    /// `posicion_interrogativo` ("inicio" o "final").
+    func colocarInterrogativo(_ interrogativo: String, en palabras: [String]) throws -> [String] {
+        switch BaseDatos.clave(try regla("posicion_interrogativo")) {
+        case "inicio": return [interrogativo] + palabras
+        case "final": return palabras + [interrogativo]
+        default: throw ErrorGeneracion.faltaRegla("posicion_interrogativo", lengua)
+        }
+    }
+
     /// Coloca sujeto, objeto y verbo en el orden de la regla `orden` ("SOV", "VSO"...).
     /// Los constituyentes vacíos (sin objeto) simplemente no aparecen.
     func ordenar(sujeto: [String], objeto: [String], verbo: [String]) throws -> [String] {

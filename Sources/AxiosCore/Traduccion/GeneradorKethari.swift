@@ -16,17 +16,33 @@ public struct GeneradorKethari {
         let sujeto = try self.sujeto(oracion)
         let objeto = try oracion.objeto.map { try sintagma($0) } ?? []
         let verbo = [try self.verbo(oracion.verbo)]
-        return try base.ordenar(sujeto: sujeto, objeto: objeto, verbo: verbo).joined(separator: " ")
+        var palabras = try base.ordenar(sujeto: sujeto, objeto: objeto, verbo: verbo)
+
+        switch oracion.tipo {
+        case .declarativa:
+            break
+        case .preguntaSiNo:
+            palabras.append(try base.regla("particula_pregunta"))
+        case .preguntaParcial(let interrogativo):
+            // El interrogativo va donde diga `posicion_interrogativo` (inicio en
+            // Kethari) y la partícula de pregunta cierra la frase.
+            palabras = try base.colocarInterrogativo(try base.palabra(interrogativo.lema), en: palabras)
+            palabras.append(try base.regla("particula_pregunta"))
+        }
+        return palabras.joined(separator: " ")
     }
 
     // MARK: - Constituyentes
 
-    /// Kethari exige sujeto: si está omitido se repone con la persona y el número del verbo.
+    /// Kethari exige sujeto: si está omitido se repone con la persona y el número del
+    /// verbo. Si el sujeto es el propio interrogativo ("¿Quién…?"), ya lo pone `generar`.
     private func sujeto(_ oracion: Oracion) throws -> [String] {
         switch oracion.sujeto {
         case .explicito(let sn):
             return try sintagma(sn)
-        case .omitido, .interrogativo:
+        case .interrogativo:
+            return []
+        case .omitido:
             let rasgos = oracion.verbo.rasgos
             return [try pronombre(base.pronombre(persona: rasgos.persona, plural: rasgos.plural))]
         }
