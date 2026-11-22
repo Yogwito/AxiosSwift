@@ -1,5 +1,6 @@
-// Normalizador (P1): minúsculas, sin tildes (salvo la ñ), solo ¿ ? como signos
-// y un espacio entre palabras. Guarda la columna original de cada carácter.
+// Normalizador (P1): minúsculas, sin tildes (salvo la ñ), solo ¿ ? como signos,
+// un espacio entre palabras y números en letras a cifras. Guarda la columna
+// original de cada carácter.
 
 import Foundation
 
@@ -24,9 +25,21 @@ public struct TextoNormalizado: Equatable {
 }
 
 public struct Normalizador {
-    public init() {}
+    /// Con léxico también convierte los números en letras ("quince" → "15").
+    let lexicon: Lexicon?
+
+    public init(lexicon: Lexicon? = nil) {
+        self.lexicon = lexicon
+    }
 
     public func normalizar(_ entrada: String) -> TextoNormalizado {
+        let limpio = limpiar(entrada)
+        guard let lexicon else { return limpio }
+        return NumerosEnLetras(lexicon: lexicon).convertir(limpio)
+    }
+
+    /// Minúsculas, tildes, signos y espacios.
+    func limpiar(_ entrada: String) -> TextoNormalizado {
         let original = Array(entrada)
         var salida: [Character] = []
         var columnas: [Int] = []
