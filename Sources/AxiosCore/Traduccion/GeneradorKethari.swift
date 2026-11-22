@@ -32,12 +32,20 @@ public struct GeneradorKethari {
         }
     }
 
+    /// Sintagma nominal: [número] nombre[-plural]. Los pronombres plurales ya son
+    /// palabras propias del léxico (ulesh, iresh) y no llevan sufijo.
     private func sintagma(_ sn: SN) throws -> [String] {
         switch sn.nucleo {
         case .pronombre(let p):
             return [try pronombre(p)]
-        case .sustantivo(let lema, _):
-            return [try base.palabra(lema)]
+        case .sustantivo(let lema, let plural):
+            // Regla 3.3.5: un número mayor que 1 exige plural en el nombre.
+            let enPlural = plural || (sn.cantidad ?? 0) > 1
+            var nombre = try base.palabra(lema)
+            if enPlural { nombre += try base.regla("sufijo_plural") }
+            guard let cantidad = sn.cantidad else { return [nombre] }
+            let numero = try ConversorNumeros(lexicon: base.lexicon, lengua: .kethari).convertir(cantidad)
+            return try base.colocar(numero, junto: nombre, regla: "posicion_numero")
         }
     }
 
@@ -45,13 +53,15 @@ public struct GeneradorKethari {
         try base.palabra(p.lema)
     }
 
-    /// Raíz del verbo con el sufijo del tiempo (el presente no lleva sufijo).
+    /// [negación-]raíz[-tiempo]: el presente no lleva sufijo.
     private func verbo(_ v: NodoVerbo) throws -> String {
-        let raiz = try base.palabra(v.rasgos.raiz)
+        var forma = try base.palabra(v.rasgos.raiz)
         switch v.rasgos.tiempo {
-        case .presente: return raiz
-        case .pasado: return raiz + (try base.regla("sufijo_pasado"))
-        case .futuro: return raiz + (try base.regla("sufijo_futuro"))
+        case .presente: break
+        case .pasado: forma += try base.regla("sufijo_pasado")
+        case .futuro: forma += try base.regla("sufijo_futuro")
         }
+        if v.negado { forma = try base.regla("prefijo_negacion") + forma }
+        return forma
     }
 }

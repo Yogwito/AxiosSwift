@@ -48,6 +48,16 @@ struct BaseGenerador {
         throw ErrorGeneracion.sinTraduccion("pronombre \(persona)\(numero)", lengua)
     }
 
+    /// Pone `palabra` antes o después de `nucleo` según una regla de posición
+    /// (`posicion_numero`, `posicion_poseedor`), cuyo valor es "antes" o "despues".
+    func colocar(_ palabra: String, junto nucleo: String, regla clave: String) throws -> [String] {
+        switch BaseDatos.clave(try regla(clave)) {
+        case "antes": return [palabra, nucleo]
+        case "despues": return [nucleo, palabra]
+        default: throw ErrorGeneracion.faltaRegla(clave, lengua)
+        }
+    }
+
     /// Coloca sujeto, objeto y verbo en el orden de la regla `orden` ("SOV", "VSO"...).
     /// Los constituyentes vacíos (sin objeto) simplemente no aparecen.
     func ordenar(sujeto: [String], objeto: [String], verbo: [String]) throws -> [String] {
