@@ -17,7 +17,24 @@ public struct GeneradorOzh {
         let objeto = try oracion.objeto.map { try sintagma($0) } ?? []
         // La partícula es obligatoria y va justo después del verbo.
         let verbo = [try self.verbo(oracion.verbo), try particula(oracion.tipo)]
-        return try base.ordenar(sujeto: sujeto, objeto: objeto, verbo: verbo).joined(separator: " ")
+        let cuerpo = try base.ordenar(sujeto: sujeto, objeto: objeto, verbo: verbo)
+        return (try inicio(oracion.verbo) + cuerpo).joined(separator: " ")
+    }
+
+    // MARK: - Tiempo y negación
+
+    /// Lo que abre la frase: [marca de tiempo] [negación], en ese orden, como en la
+    /// BNF del validador. El presente no tiene marca. El pasado lleva siempre
+    /// `marca_pasado`, aunque la señal 4 no la traiga (bitácora 2026-11-22).
+    private func inicio(_ v: NodoVerbo) throws -> [String] {
+        var palabras: [String] = []
+        switch v.rasgos.tiempo {
+        case .presente: break
+        case .pasado: palabras.append(try base.regla("marca_pasado"))
+        case .futuro: palabras.append(try base.regla("marca_futuro"))
+        }
+        if v.negado { palabras.append(try base.regla("negacion")) }
+        return palabras
     }
 
     // MARK: - Partícula
