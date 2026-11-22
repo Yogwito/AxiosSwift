@@ -200,6 +200,29 @@ Cada paso de P2 agrega una fase a la traza (`axios traducir "…" --traza`):
 | `sintaxis` | El recorrido: cada no terminal visitado con el token donde empezó. Es la derivación por la BNF; si hay un error, termina en el no terminal donde falló |
 | `arbol` | `Oracion.texto()`, o `error · columna N: motivo` |
 
+## Normalizador
+
+Primera fase del pipeline (`Sources/AxiosCore/Normalizacion/Normalizador.swift`). Deja la
+pregunta como la espera el analizador léxico sin conocer ninguna palabra: solo usa las
+clases de caracteres de Unicode.
+
+| Entrada | Regla | Salida |
+|---|---|---|
+| `QUEREMOS Paz` | minúsculas | `queremos paz` |
+| `¿Cuándo vendrán?` | sin tildes; "¿" y "?" se conservan | `¿cuando vendran?` |
+| `AÑO` | la ñ se conserva (es otra letra) | `año` |
+| `cu´ando` | acento suelto de otro teclado: se quita sin separar | `cuando` |
+| `¿¿llegan???` | signos de pregunta repetidos cuentan como uno | `¿llegan?` |
+| `¡Queremos paz!`, `naves,llegan.` | otra puntuación separa palabras | `queremos paz`, `naves llegan` |
+| `9.999 naves` | entre dos cifras, la puntuación es separador de miles | `9999 naves` |
+| `  cuando \t llegan ` | un solo espacio entre palabras, sin espacios en los extremos | `cuando llegan` |
+| `nave$` | un símbolo que no es puntuación se deja; lo rechaza el analizador léxico | `nave$` |
+
+El resultado es un `TextoNormalizado`: el texto y, para cada carácter, su columna en la
+entrada original (`columnaOriginal(_:)`). En `"¿CUÁNDO   llegan?"` la *l* de *llegan* está
+en la columna 9 del texto normalizado y en la 11 del original. Así los errores del
+analizador léxico y del sintáctico señalan lo que escribió el usuario.
+
 ## Autómata
 
 ## Morfología
