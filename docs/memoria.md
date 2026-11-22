@@ -223,6 +223,28 @@ entrada original (`columnaOriginal(_:)`). En `"¿CUÁNDO   llegan?"` la *l* de *
 en la columna 9 del texto normalizado y en la 11 del original. Así los errores del
 analizador léxico y del sintáctico señalan lo que escribió el usuario.
 
+### Números en letras
+
+Con un `Lexicon` (`Normalizador(lexicon: bd)`), el normalizador cambia los números
+escritos en letras por cifras (`NumerosEnLetras.swift`). Las palabras están en
+`data/numeros_es_v0.7.txt` (categoría `numeral` de `vocab_es`), con su valor `v` y su `tipo`:
+
+| tipo | Ejemplos | Valor |
+|---|---|---|
+| `unidad` | cero, quince, veintiséis | 0 a 29 |
+| `decena` | treinta, noventa | 30 a 90 |
+| `centena` | cien, ciento, doscientas | 100 a 900 |
+| `mil` | mil | multiplica el grupo anterior |
+| `conector` | y | une decena y unidad |
+
+Cada grupo de tres cifras es `[centena] [decena [y unidad] | unidad]`, y "mil" multiplica
+el grupo que tiene delante (o 1 si va solo): "nueve mil novecientos noventa y nueve" →
+9 × 1000 + 900 + 90 + 9 = 9999. Se lee el número más largo posible; una palabra que no
+encaja empieza otro ("dos tres" → "2 3"). "un"/"una" llevan `solo=compuesto`: no empiezan
+un número, así "una nave" queda igual y "treinta y una naves" pasa a "31 naves". Las
+cifras toman la columna de la primera palabra del número. Un valor mayor que 9 999 se
+convierte igual y lo rechaza la regla R1 del analizador sintáctico.
+
 ## Autómata
 
 ## Morfología
