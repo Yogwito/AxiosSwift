@@ -296,6 +296,36 @@ stateDiagram-v2
 - `AnalizadorLexico.texto(_:)` da la línea de la traza:
   `¿ SIGNO@1 · cuando PALABRA@2 · llegan PALABRA@9 · 15 NUM@16 · ? SIGNO@18 · FIN@19`.
 
+## Corrector
+
+El corrector (`Sources/AxiosCore/Correccion/Corrector.swift`) recibe los tokens del
+analizador léxico y cambia cada palabra mal escrita por la más cercana del vocabulario
+español, con una distancia de Levenshtein propia.
+
+```
+corregir(palabra):
+    si está en el vocabulario o la morfología la reconoce → no se toca
+    umbral ← 0 si tiene ≤ 2 letras, 1 si tiene ≤ 4, 2 si tiene más
+    candidatas ← vocabulario + formas generadas que la morfología reconoce
+    elegir la candidata a menor distancia
+    si la distancia > umbral o hay empate → no se corrige
+```
+
+- **Distancia de Levenshtein:** el mínimo de inserciones, borrados y sustituciones de
+  letras. Se calcula con programación dinámica guardando solo dos filas de la tabla
+  (`Corrector.distancia`).
+- **Formas generadas:** las formas regulares ("llegan", "naves") no están en
+  `vocabularioEspanol()` porque la morfología las analiza. Para cada final de la palabra
+  que sea una terminación de `vocab_es` se prueban los verbos y sustantivos conocidos con
+  ese final: "lelgan" termina en "-an", así que se prueba "llegan" (llegar + -an), y gana
+  con distancia 2.
+- **No altera palabras válidas:** antes de buscar candidatas se pregunta a
+  `Morfologia.reconoce`, así "vendrán", "fue" o "enviaron" no se tocan.
+- **Si no sabe, no cambia nada:** una palabra muy distinta o con dos candidatas a la
+  misma distancia se deja igual, y el analizador sintáctico la rechaza como desconocida.
+- Cada token corregido conserva su columna. `Corrector.texto(_:)` da la línea de la
+  traza: `kuando → cuando (1) · lelgan → llegan (2)`.
+
 ## Morfología
 
 La morfología (`Sources/AxiosCore/Morfologia/Morfologia.swift`) recibe una palabra y
