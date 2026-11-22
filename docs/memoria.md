@@ -247,6 +247,55 @@ convierte igual y lo rechaza la regla R1 del analizador sintáctico.
 
 ## Autómata
 
+El analizador léxico del español (`Sources/AxiosCore/Lexico/AnalizadorLexico.swift`) es
+un AFD escrito a mano con su tabla de transiciones explícita. Recibe el texto ya
+normalizado y produce los tokens del contrato de `Modelos.swift` (`.palabra`,
+`.numero(Int)`, `.interrogacion`, `.fin`) con la columna que tenían en la entrada original.
+
+Clases de caracteres: **letra** (incluida la ñ), **dígito** (0-9), **signo** (¿ ?),
+**espacio** y **otro**.
+
+| Estado \ Clase | letra | dígito | signo | espacio | otro |
+|---|---|---|---|---|---|
+| **inicio** (aceptación) | enPalabra | enNumero | enSigno | inicio | error |
+| **enPalabra** (aceptación) | enPalabra | error | enSigno | inicio | error |
+| **enNumero** (aceptación) | error | enNumero | enSigno | inicio | error |
+| **enSigno** (aceptación) | enPalabra | enNumero | enSigno | inicio | error |
+| **error** (sumidero) | — | — | — | — | — |
+
+```mermaid
+stateDiagram-v2
+    [*] --> inicio
+    inicio --> enPalabra: letra
+    inicio --> enNumero: dígito
+    inicio --> enSigno: signo
+    enPalabra --> enPalabra: letra
+    enPalabra --> enSigno: signo
+    enPalabra --> inicio: espacio
+    enNumero --> enNumero: dígito
+    enNumero --> enSigno: signo
+    enNumero --> inicio: espacio
+    enSigno --> enPalabra: letra
+    enSigno --> enNumero: dígito
+    enSigno --> enSigno: signo
+    enSigno --> inicio: espacio
+    enPalabra --> error: dígito / otro
+    enNumero --> error: letra / otro
+    inicio --> error: otro
+    enSigno --> error: otro
+```
+
+- Un token termina cuando el autómata cambia de estado: `enPalabra → inicio` cierra una
+  palabra y `enNumero → enSigno` cierra un número. Cada signo es un token aparte, también
+  si van seguidos.
+- Al terminar la entrada se cierra el último token y se agrega `.fin`, con la columna que
+  sigue al final del texto original.
+- Errores, con la columna original: carácter no válido (`nave$`), cifra pegada a una
+  palabra (`nave1`), letra pegada a un número (`15naves`) y número demasiado grande para
+  un `Int`. Un número mayor que 9 999 no es error léxico: lo rechaza el sintáctico (R1).
+- `AnalizadorLexico.texto(_:)` da la línea de la traza:
+  `¿ SIGNO@1 · cuando PALABRA@2 · llegan PALABRA@9 · 15 NUM@16 · ? SIGNO@18 · FIN@19`.
+
 ## Morfología
 
 La morfología (`Sources/AxiosCore/Morfologia/Morfologia.swift`) recibe una palabra y
