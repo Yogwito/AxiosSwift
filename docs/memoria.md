@@ -534,6 +534,73 @@ La pregunta parcial lleva el interrogativo como valor asociado del tipo, así no
 construir una pregunta parcial sin interrogativo ni una declarativa con uno. El contrato
 completo, con reglas y ejemplos para los generadores, está en `docs/contrato-arbol.md`.
 
+## Generadores de Kethari y Ozh
+
+Están en `Sources/AxiosCore/Traduccion/`. Reciben la `Oracion` del árbol intermedio y no
+vuelven a mirar el español. Toda palabra sale de `Lexicon.traduccion` y todo orden, afijo,
+partícula y posición de `Lexicon.regla`: en el código no hay ninguna palabra de Kethari ni
+de Ozh.
+
+| Pieza | Qué hace |
+|-------|----------|
+| `ConversorNumeros` | Escribe un número dividiendo entre la `base` de la lengua (6 en Kethari, 10 en Ozh) y uniendo las cifras con `separador_numero`: 15 → `ra-sel` / `ois-ulo`. Límite: valor < base^6, el mismo que el validador |
+| `BaseGenerador` | Lo común: buscar palabras y reglas, reponer el sujeto omitido desde `vocab_es`, colocar S, O y V según `orden`, y armar el sintagma `[número] [poseedor] nombre` según `posicion_numero` y `posicion_poseedor` |
+| `GeneradorKethari` | SOV; `nu-` + raíz + `-ok`/`-ime`; plural `-esh` (obligatorio si el número es mayor que 1); interrogativo al inicio y `ka` al final; "nosotros" siempre `anir` |
+| `GeneradorOzh` | `[ʔoka/venu] [ne]` + VSO con partícula detrás del verbo (`zi` en afirmaciones, `mar` en preguntas); `ʔa-` en el verbo de toda pregunta e interrogativo al final; sin plural; poseedor detrás |
+
+Cada generador tiene dos entradas: `generar` (estricta: una palabra sin traducción es un
+error) y `traducir` (la que usa el traductor: devuelve una `Traduccion` con el texto y las
+palabras sin respaldo explicadas). Las decisiones (base 6, anir, partícula, ʔoka, corchetes)
+están en la bitácora con fecha y test.
+
 ## Análisis de errores
+
+### Traducción (P3)
+
+Los generadores distinguen tres clases de problema y nunca inventan una forma:
+
+| Clase | Ejemplo | Qué pasa |
+|-------|---------|----------|
+| Palabra sin respaldo: no está en el léxico | "ir" como verbo principal: está en `vocab_es` (para "ir a") pero no en `lexico` | Se retiene: `[ir]`, "ir: no está en el léxico, no se puede traducir a Kethari" |
+| Palabra sin respaldo: sin forma en la lengua | "tierra" en Kethari tras la corrección de la semana 2 (teka pasó a "territorio reclamado") | Se retiene: `iresh [tierra] nuthal`; en Ozh sigue siendo `mak` y la frase sale completa |
+| Número no representable | 50 000 en Kethari (necesita 7 cifras en base 6) | Se retiene en cifras: `[50000] kumesh vinok`, con el motivo |
+| Dato roto | Falta la regla `orden` o `marca_pasado`, o `particula_afirmacion` no está en `particulas` | Es un error (`ErrorGeneracion.faltaRegla`): no se genera la frase, porque el problema no es de la pregunta sino de los datos |
+
+La palabra retenida queda en español, entre corchetes y sin afijos (`[correr]`, no
+`nu[correr]ok`), para que se vea qué parte no es de la lengua destino. El validador no
+acepta los corchetes, así que una traducción incompleta nunca se registra como válida.
+
+**Diferencias conocidas con las señales.** Las frases generadas son válidas en su lengua,
+pero no siempre iguales a la transcripción, por decisiones documentadas:
+
+- Kethari, señales 2 y 7: sale `anir` donde la señal trae `anul`, porque el español no dice
+  si el oyente está incluido y se decidió no adivinarlo.
+- Ozh, partícula: con `zi` para afirmar y `mar` para preguntar coinciden las señales 1, 4, 5
+  y 8; la 2, 3, 9 y 10 traen `tho` y la 6 y 7 traen `mar` en afirmaciones.
+- Ozh, señal 4: "No vimos ninguna nave" no trae `ʔoka`; el generador lo pone porque lo
+  dice `marca_pasado`.
+
+### Casos no traducibles
+
+- **"¿Quién llegó?" en Ozh.** Con el interrogativo como sujeto y sin objeto sale
+  `ʔoka ʔasur mar wis`, y el validador la rechaza: Ozh exige al menos un sintagma después
+  de la partícula, y el interrogativo va al final, fuera de ese hueco. En Kethari sí se
+  traduce (`sem vinok ka`), porque allí el interrogativo puede hacer de sujeto. Para
+  resolverlo haría falta que el manual diga dónde va un interrogativo sujeto en Ozh.
+- **"¿Cuántos ciclos esperarán ustedes?" en Kethari** se traduce, pero el interrogativo
+  queda separado de su nombre (`kai ulesh lunesh tepime ka`), porque la regla
+  `posicion_interrogativo = inicio` lo manda al principio de la frase.
+- **Frases que no llegan a los generadores.** Las que el analizador sintáctico rechaza
+  ("Antes enviamos…", "no los vimos a ustedes", "ninguna nave", la voz desconocida de la
+  señal 6, "Ya los escuchamos") se informan con su columna en esa fase (bitácora
+  2026-11-21) y no se intentan traducir.
+
+### Pruebas que lo respaldan
+
+`ParesTests.testOchoParesDeNumerosYPosesivos` lleva ocho frases en español por el
+analizador sintáctico, los dos generadores y los dos validadores con los datos reales:
+números en base 6 y 10 (6, 15, 26, 36 y 12) y posesivos delante y detrás, también en una
+pregunta. Los casos de error están en `DesconocidasTests`, `GeneradorKethariTests`,
+`GeneradorOzhTests` y `NumerosTests`.
 
 ## Declaración de uso de IA
