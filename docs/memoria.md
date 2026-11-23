@@ -677,6 +677,48 @@ error) y `traducir` (la que usa el traductor: devuelve una `Traduccion` con el t
 palabras sin respaldo explicadas). Las decisiones (base 6, anir, partícula, ʔoka, corchetes)
 están en la bitácora con fecha y test.
 
+## Pipeline y traza
+
+`Pipeline.traducir` (`Sources/AxiosCore/Pipeline/Pipeline.swift`) une todas las fases. Tiene
+la firma de `CLI.Traductor`, así la CLI lo recibe sin cambiar su código.
+
+```
+pregunta
+  → Normalizador (P1)          minúsculas, tildes, signos, números en letras
+  → AnalizadorLexico (P1)      AFD: tokens con su columna original
+  → Corrector (P1)             Levenshtein contra el vocabulario
+  → AnalizadorSintactico (P2)  morfología, BNF y árbol intermedio
+  → GeneradorKethari / GeneradorOzh (P3)
+  → validarKethari / validarOzh (P4)
+  → Retrotraductor (P1)        lo aprobado, de vuelta al español
+  → RegistroPregunta           la CLI lo guarda siempre en la BD
+```
+
+Cómo cumple las tres condiciones de Axios:
+
+| Condición | Qué hace el pipeline |
+|---|---|
+| 1. Ninguna pregunta se pierde | Siempre devuelve un `RegistroPregunta`. Si una fase falla, el motivo dice cuál y en qué columna ("error léxico: columna 14: carácter no válido '$'") |
+| 2. No sale lo que no se puede volver a leer | Cada traducción pasa por su validador; si la rechaza queda marcada como rechazada y el motivo dice por qué |
+| 3. No se inventa nada | Si el generador retuvo alguna palabra sin respaldo, esa lengua queda sin traducción y el motivo explica la palabra. La otra lengua sale igual |
+
+Con `axios traducir "<pregunta>" --traza` se ve cada fase:
+
+```
+[entrada]         ¿Cuándo llegarán nuestras cinco naves?
+[normalizacion]   ¿cuando llegaran nuestras 5 naves?
+[lexico]          ¿ SIGNO@1 · cuando PALABRA@2 · llegaran PALABRA@9 · nuestras PALABRA@18 · 5 NUM@27 · …
+[correccion]      sin cambios
+[morfologia]      … (P2)
+[clasificacion]   … (P2)
+[sintaxis]        … (P2)
+[arbol]           parcial(cuando, circunstancial) · S: 5 nave+pl de(nosotros) · V: llegar 3pl futuro · O: —
+[kethari]         kom pai anir kumesh vinime ka
+[ozh]             venu ʔasur mar ulo gor ʔenka wem
+[validacion]      kethari: válida [INT kom] [S pai anir kumesh] [V vinime] [PREG] | ozh: válida …
+[retrotraduccion] K: ¿cuándo · 5 nave de nosotros · llegar/venir [futuro]? | O: …
+```
+
 ## Retrotraducción
 
 `Retrotraductor` (`Sources/AxiosCore/Retrotraduccion/Retrotraductor.swift`) devuelve al
