@@ -1,0 +1,76 @@
+#vocab_es|version=0.7
+# Números escritos en letras, para el normalizador ("dos mil quince" → 2015).
+# forma|lema|categoria|rasgos
+# Rasgos:
+#   v = valor
+#   tipo = unidad (0-29), decena (30-90), centena (100-900), mil, conector ("y")
+#   solo = compuesto: no empieza un número ("una nave" es artículo; "treinta y una" es 31)
+
+# --- Unidades ---------------------------------------------------------------------
+cero||numeral|v=0;tipo=unidad
+uno||numeral|v=1;tipo=unidad
+un||numeral|v=1;tipo=unidad;solo=compuesto
+una||numeral|v=1;tipo=unidad;solo=compuesto
+dos||numeral|v=2;tipo=unidad
+tres||numeral|v=3;tipo=unidad
+cuatro||numeral|v=4;tipo=unidad
+cinco||numeral|v=5;tipo=unidad
+seis||numeral|v=6;tipo=unidad
+siete||numeral|v=7;tipo=unidad
+ocho||numeral|v=8;tipo=unidad
+nueve||numeral|v=9;tipo=unidad
+diez||numeral|v=10;tipo=unidad
+once||numeral|v=11;tipo=unidad
+doce||numeral|v=12;tipo=unidad
+trece||numeral|v=13;tipo=unidad
+catorce||numeral|v=14;tipo=unidad
+quince||numeral|v=15;tipo=unidad
+dieciséis||numeral|v=16;tipo=unidad
+diecisiete||numeral|v=17;tipo=unidad
+dieciocho||numeral|v=18;tipo=unidad
+diecinueve||numeral|v=19;tipo=unidad
+veinte||numeral|v=20;tipo=unidad
+veintiuno||numeral|v=21;tipo=unidad
+veintiún||numeral|v=21;tipo=unidad
+veintiuna||numeral|v=21;tipo=unidad
+veintidós||numeral|v=22;tipo=unidad
+veintitrés||numeral|v=23;tipo=unidad
+veinticuatro||numeral|v=24;tipo=unidad
+veinticinco||numeral|v=25;tipo=unidad
+veintiséis||numeral|v=26;tipo=unidad
+veintisiete||numeral|v=27;tipo=unidad
+veintiocho||numeral|v=28;tipo=unidad
+veintinueve||numeral|v=29;tipo=unidad
+
+# --- Decenas (se unen a una unidad con "y": treinta y dos) -------------------------
+treinta||numeral|v=30;tipo=decena
+cuarenta||numeral|v=40;tipo=decena
+cincuenta||numeral|v=50;tipo=decena
+sesenta||numeral|v=60;tipo=decena
+setenta||numeral|v=70;tipo=decena
+ochenta||numeral|v=80;tipo=decena
+noventa||numeral|v=90;tipo=decena
+
+# --- Centenas -----------------------------------------------------------------------
+cien||numeral|v=100;tipo=centena
+ciento||numeral|v=100;tipo=centena
+doscientos||numeral|v=200;tipo=centena
+doscientas||numeral|v=200;tipo=centena
+trescientos||numeral|v=300;tipo=centena
+trescientas||numeral|v=300;tipo=centena
+cuatrocientos||numeral|v=400;tipo=centena
+cuatrocientas||numeral|v=400;tipo=centena
+quinientos||numeral|v=500;tipo=centena
+quinientas||numeral|v=500;tipo=centena
+seiscientos||numeral|v=600;tipo=centena
+seiscientas||numeral|v=600;tipo=centena
+setecientos||numeral|v=700;tipo=centena
+setecientas||numeral|v=700;tipo=centena
+ochocientos||numeral|v=800;tipo=centena
+ochocientas||numeral|v=800;tipo=centena
+novecientos||numeral|v=900;tipo=centena
+novecientas||numeral|v=900;tipo=centena
+
+# --- Mil y conector -------------------------------------------------------------------
+mil||numeral|v=1000;tipo=mil
+y||numeral|tipo=conector

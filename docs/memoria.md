@@ -200,7 +200,131 @@ Cada paso de P2 agrega una fase a la traza (`axios traducir "…" --traza`):
 | `sintaxis` | El recorrido: cada no terminal visitado con el token donde empezó. Es la derivación por la BNF; si hay un error, termina en el no terminal donde falló |
 | `arbol` | `Oracion.texto()`, o `error · columna N: motivo` |
 
+## Normalizador
+
+Primera fase del pipeline (`Sources/AxiosCore/Normalizacion/Normalizador.swift`). Deja la
+pregunta como la espera el analizador léxico sin conocer ninguna palabra: solo usa las
+clases de caracteres de Unicode.
+
+| Entrada | Regla | Salida |
+|---|---|---|
+| `QUEREMOS Paz` | minúsculas | `queremos paz` |
+| `¿Cuándo vendrán?` | sin tildes; "¿" y "?" se conservan | `¿cuando vendran?` |
+| `AÑO` | la ñ se conserva (es otra letra) | `año` |
+| `cu´ando` | acento suelto de otro teclado: se quita sin separar | `cuando` |
+| `¿¿llegan???` | signos de pregunta repetidos cuentan como uno | `¿llegan?` |
+| `¡Queremos paz!`, `naves,llegan.` | otra puntuación separa palabras | `queremos paz`, `naves llegan` |
+| `9.999 naves` | entre dos cifras, la puntuación es separador de miles | `9999 naves` |
+| `  cuando \t llegan ` | un solo espacio entre palabras, sin espacios en los extremos | `cuando llegan` |
+| `nave$` | un símbolo que no es puntuación se deja; lo rechaza el analizador léxico | `nave$` |
+
+El resultado es un `TextoNormalizado`: el texto y, para cada carácter, su columna en la
+entrada original (`columnaOriginal(_:)`). En `"¿CUÁNDO   llegan?"` la *l* de *llegan* está
+en la columna 9 del texto normalizado y en la 11 del original. Así los errores del
+analizador léxico y del sintáctico señalan lo que escribió el usuario.
+
+### Números en letras
+
+Con un `Lexicon` (`Normalizador(lexicon: bd)`), el normalizador cambia los números
+escritos en letras por cifras (`NumerosEnLetras.swift`). Las palabras están en
+`data/numeros_es_v0.7.txt` (categoría `numeral` de `vocab_es`), con su valor `v` y su `tipo`:
+
+| tipo | Ejemplos | Valor |
+|---|---|---|
+| `unidad` | cero, quince, veintiséis | 0 a 29 |
+| `decena` | treinta, noventa | 30 a 90 |
+| `centena` | cien, ciento, doscientas | 100 a 900 |
+| `mil` | mil | multiplica el grupo anterior |
+| `conector` | y | une decena y unidad |
+
+Cada grupo de tres cifras es `[centena] [decena [y unidad] | unidad]`, y "mil" multiplica
+el grupo que tiene delante (o 1 si va solo): "nueve mil novecientos noventa y nueve" →
+9 × 1000 + 900 + 90 + 9 = 9999. Se lee el número más largo posible; una palabra que no
+encaja empieza otro ("dos tres" → "2 3"). "un"/"una" llevan `solo=compuesto`: no empiezan
+un número, así "una nave" queda igual y "treinta y una naves" pasa a "31 naves". Las
+cifras toman la columna de la primera palabra del número. Un valor mayor que 9 999 se
+convierte igual y lo rechaza la regla R1 del analizador sintáctico.
+
 ## Autómata
+
+El analizador léxico del español (`Sources/AxiosCore/Lexico/AnalizadorLexico.swift`) es
+un AFD escrito a mano con su tabla de transiciones explícita. Recibe el texto ya
+normalizado y produce los tokens del contrato de `Modelos.swift` (`.palabra`,
+`.numero(Int)`, `.interrogacion`, `.fin`) con la columna que tenían en la entrada original.
+
+Clases de caracteres: **letra** (incluida la ñ), **dígito** (0-9), **signo** (¿ ?),
+**espacio** y **otro**.
+
+| Estado \ Clase | letra | dígito | signo | espacio | otro |
+|---|---|---|---|---|---|
+| **inicio** (aceptación) | enPalabra | enNumero | enSigno | inicio | error |
+| **enPalabra** (aceptación) | enPalabra | error | enSigno | inicio | error |
+| **enNumero** (aceptación) | error | enNumero | enSigno | inicio | error |
+| **enSigno** (aceptación) | enPalabra | enNumero | enSigno | inicio | error |
+| **error** (sumidero) | — | — | — | — | — |
+
+```mermaid
+stateDiagram-v2
+    [*] --> inicio
+    inicio --> enPalabra: letra
+    inicio --> enNumero: dígito
+    inicio --> enSigno: signo
+    enPalabra --> enPalabra: letra
+    enPalabra --> enSigno: signo
+    enPalabra --> inicio: espacio
+    enNumero --> enNumero: dígito
+    enNumero --> enSigno: signo
+    enNumero --> inicio: espacio
+    enSigno --> enPalabra: letra
+    enSigno --> enNumero: dígito
+    enSigno --> enSigno: signo
+    enSigno --> inicio: espacio
+    enPalabra --> error: dígito / otro
+    enNumero --> error: letra / otro
+    inicio --> error: otro
+    enSigno --> error: otro
+```
+
+- Un token termina cuando el autómata cambia de estado: `enPalabra → inicio` cierra una
+  palabra y `enNumero → enSigno` cierra un número. Cada signo es un token aparte, también
+  si van seguidos.
+- Al terminar la entrada se cierra el último token y se agrega `.fin`, con la columna que
+  sigue al final del texto original.
+- Errores, con la columna original: carácter no válido (`nave$`), cifra pegada a una
+  palabra (`nave1`), letra pegada a un número (`15naves`) y número demasiado grande para
+  un `Int`. Un número mayor que 9 999 no es error léxico: lo rechaza el sintáctico (R1).
+- `AnalizadorLexico.texto(_:)` da la línea de la traza:
+  `¿ SIGNO@1 · cuando PALABRA@2 · llegan PALABRA@9 · 15 NUM@16 · ? SIGNO@18 · FIN@19`.
+
+## Corrector
+
+El corrector (`Sources/AxiosCore/Correccion/Corrector.swift`) recibe los tokens del
+analizador léxico y cambia cada palabra mal escrita por la más cercana del vocabulario
+español, con una distancia de Levenshtein propia.
+
+```
+corregir(palabra):
+    si está en el vocabulario o la morfología la reconoce → no se toca
+    umbral ← 0 si tiene ≤ 2 letras, 1 si tiene ≤ 4, 2 si tiene más
+    candidatas ← vocabulario + formas generadas que la morfología reconoce
+    elegir la candidata a menor distancia
+    si la distancia > umbral o hay empate → no se corrige
+```
+
+- **Distancia de Levenshtein:** el mínimo de inserciones, borrados y sustituciones de
+  letras. Se calcula con programación dinámica guardando solo dos filas de la tabla
+  (`Corrector.distancia`).
+- **Formas generadas:** las formas regulares ("llegan", "naves") no están en
+  `vocabularioEspanol()` porque la morfología las analiza. Para cada final de la palabra
+  que sea una terminación de `vocab_es` se prueban los verbos y sustantivos conocidos con
+  ese final: "lelgan" termina en "-an", así que se prueba "llegan" (llegar + -an), y gana
+  con distancia 2.
+- **No altera palabras válidas:** antes de buscar candidatas se pregunta a
+  `Morfologia.reconoce`, así "vendrán", "fue" o "enviaron" no se tocan.
+- **Si no sabe, no cambia nada:** una palabra muy distinta o con dos candidatas a la
+  misma distancia se deja igual, y el analizador sintáctico la rechaza como desconocida.
+- Cada token corregido conserva su columna. `Corrector.texto(_:)` da la línea de la
+  traza: `kuando → cuando (1) · lelgan → llegan (2)`.
 
 ## Morfología
 
@@ -552,6 +676,75 @@ Cada generador tiene dos entradas: `generar` (estricta: una palabra sin traducci
 error) y `traducir` (la que usa el traductor: devuelve una `Traduccion` con el texto y las
 palabras sin respaldo explicadas). Las decisiones (base 6, anir, partícula, ʔoka, corchetes)
 están en la bitácora con fecha y test.
+
+## Pipeline y traza
+
+`Pipeline.traducir` (`Sources/AxiosCore/Pipeline/Pipeline.swift`) une todas las fases. Tiene
+la firma de `CLI.Traductor`, así la CLI lo recibe sin cambiar su código.
+
+```
+pregunta
+  → Normalizador (P1)          minúsculas, tildes, signos, números en letras
+  → AnalizadorLexico (P1)      AFD: tokens con su columna original
+  → Corrector (P1)             Levenshtein contra el vocabulario
+  → AnalizadorSintactico (P2)  morfología, BNF y árbol intermedio
+  → GeneradorKethari / GeneradorOzh (P3)
+  → validarKethari / validarOzh (P4)
+  → Retrotraductor (P1)        lo aprobado, de vuelta al español
+  → RegistroPregunta           la CLI lo guarda siempre en la BD
+```
+
+Cómo cumple las tres condiciones de Axios:
+
+| Condición | Qué hace el pipeline |
+|---|---|
+| 1. Ninguna pregunta se pierde | Siempre devuelve un `RegistroPregunta`. Si una fase falla, el motivo dice cuál y en qué columna ("error léxico: columna 14: carácter no válido '$'") |
+| 2. No sale lo que no se puede volver a leer | Cada traducción pasa por su validador; si la rechaza queda marcada como rechazada y el motivo dice por qué |
+| 3. No se inventa nada | Si el generador retuvo alguna palabra sin respaldo, esa lengua queda sin traducción y el motivo explica la palabra. La otra lengua sale igual |
+
+Con `axios traducir "<pregunta>" --traza` se ve cada fase:
+
+```
+[entrada]         ¿Cuándo llegarán nuestras cinco naves?
+[normalizacion]   ¿cuando llegaran nuestras 5 naves?
+[lexico]          ¿ SIGNO@1 · cuando PALABRA@2 · llegaran PALABRA@9 · nuestras PALABRA@18 · 5 NUM@27 · …
+[correccion]      sin cambios
+[morfologia]      … (P2)
+[clasificacion]   … (P2)
+[sintaxis]        … (P2)
+[arbol]           parcial(cuando, circunstancial) · S: 5 nave+pl de(nosotros) · V: llegar 3pl futuro · O: —
+[kethari]         kom pai anir kumesh vinime ka
+[ozh]             venu ʔasur mar ulo gor ʔenka wem
+[validacion]      kethari: válida [INT kom] [S pai anir kumesh] [V vinime] [PREG] | ozh: válida …
+[retrotraduccion] K: ¿cuándo · 5 nave de nosotros · llegar/venir [futuro]? | O: …
+```
+
+## Retrotraducción
+
+`Retrotraductor` (`Sources/AxiosCore/Retrotraduccion/Retrotraductor.swift`) devuelve al
+español una frase en Kethari u Ozh. Sirve para comprobar qué se va a transmitir y qué se
+creía en una fecha que significaba cada palabra.
+
+1. Valida la frase con `validarKethari` / `validarOzh`. Si no es válida, no se
+   retrotraduce: se devuelve el motivo y la columna.
+2. Lee la estructura que da el validador (`[INT kom] [S ulesh] [V vinime] [PREG]`).
+3. Busca cada palabra con `significados(forma:lengua:en:)`, en la fecha pedida o con lo
+   vigente. Los afijos (plural, negación, tiempo, pregunta) y las marcas de tiempo salen de
+   las reglas; los números se leen en la base de cada lengua.
+4. Arma una glosa en orden español: interrogativo · sujeto · verbo · objeto.
+
+| Lengua | Frase | Retrotraducción |
+|---|---|---|
+| Kethari | kom ulesh vinime ka | ¿cuándo · ustedes · llegar/venir [futuro]? |
+| Kethari | ra-sel kumesh vinok | 15 nave · llegar/venir [pasado] |
+| Kethari | anir ulesh nukorok | nosotros · no ver [pasado] · ustedes |
+| Ozh | ʔasur mar shavi wem | ¿cuándo · ustedes · llegar/venir [mar]? |
+| Ozh | ʔoka kesh zi oruvi thüm ʔenka | ellas/ellos · visitar [pasado] · mundo/planeta de nosotros/nosotros incluyente [zi] |
+
+Es una glosa y no español conjugado: con varios significados se muestran todos
+("llegar/venir") y la partícula de Ozh queda entre corchetes, como en el decodificador,
+porque su significado no está en los datos. Con fecha, "iresh tekaesh nuthal" da
+"tierra" antes de la corrección de la semana 2 y "territorio reclamado" después.
 
 ## Análisis de errores
 

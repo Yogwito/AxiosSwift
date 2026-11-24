@@ -18,7 +18,8 @@ public struct CLI {
 
     /// Archivos que carga `inicializar`, en orden. La semana 2 se carga aparte con `cargar`.
     static let archivosIniciales = [
-        "lexico_v0.7.txt", "reglas_v0.7.txt", "vocab_es_v0.7.txt", "senales_semana1.txt",
+        "lexico_v0.7.txt", "reglas_v0.7.txt", "vocab_es_v0.7.txt", "numeros_es_v0.7.txt",
+        "senales_semana1.txt",
     ]
 
     private let bd: BaseDatos
