@@ -1,0 +1,46 @@
+# Pares pregunta → traducción esperada (rúbrica #23). Los lee ParesTests.
+# autor|español|kethari esperado|ozh esperado[|trozo del motivo]
+# "—" en kethari u ozh: esa lengua NO debe traducirse.
+# Si no se traduce a ninguna, se agrega un 5.º campo con un trozo del motivo esperado.
+# Los resultados esperados se calculan a mano desde el manual (data/ y docs/).
+
+# --- P3: números y posesivos --------------------------------------------------------
+# Señal 3: número en base 6 / base 10; plural -esh en Kethari, sin plural en Ozh.
+P3|15 naves llegaron|ra-sel kumesh vinok|ʔoka sur zi ois-ulo gor
+# Señal 7: seis es "ti-vo" (1·6 + 0) en Kethari y una sola cifra en Ozh.
+P3|nosotros esperaremos 6 ciclos|anir ti-vo lunesh tepime|venu bo zi ʔenka sab drüm
+# Señal 10: 26 = 4·6 + 2.
+P3|nosotros vimos 26 estrellas|anir mok-ra sorinesh korok|ʔoka ʔim zi ʔenka dav-sab ral
+# Tres cifras en base 6: 36 = 1·36 + 0·6 + 0.
+P3|36 naves llegarán|ti-vo-vo kumesh vinime|venu sur zi kru-sab gor
+# Señal 8: el poseedor va delante en Kethari y detrás en Ozh.
+P3|ellos visitaron nuestro mundo|iresh anir vael dunok|ʔoka kesh zi oruvi thüm ʔenka
+# Posesivo en el sujeto.
+P3|mi nave llegó|an kum vinok|ʔoka sur zi gor ʔen
+# Número y posesivo juntos: [número] [poseedor] nombre / [número] nombre [poseedor].
+P3|nuestras 12 naves llegarán|ra-vo anir kumesh vinime|venu sur zi ois-dav gor ʔenka
+# Número y posesivo en una pregunta: ka al final en Kethari, interrogativo al final en Ozh.
+P3|¿ cuándo llegarán nuestras 5 naves ?|kom pai anir kumesh vinime ka|venu ʔasur mar ulo gor ʔenka wem
+
+# --- P4: datos (semana 2, base 6, lo que no se transmite) ---------------------------
+# Semana 2: teka pasó a "territorio reclamado"; "tierra" no tiene forma vigente en Kethari.
+# En Ozh sigue siendo mak; sujeto omitido → ʔenka; negación ne + partícula zi (señal 4).
+P4|no queremos tierra|—|ne lom zi ʔenka mak
+# Semana 2, señal 9: Kethari literal. Ozh: presente sin marca; pregunta → ʔa- + ha (ser),
+# partícula mar, S oru, O fen; el artículo "una" se descarta; sin interrogativo al final.
+P4|¿es él una criatura?|ir yorr mi ka|ʔaha mar oru fen
+# Número en letras; 26 = 4·6 + 2 → mok-ra; en Ozh 2 y 6 → dav-sab; Ozh sin plural.
+P4|ellos enviaron veintiséis mensajes|iresh mok-ra ombraesh salok|ʔoka dra zi oruvi dav-sab vesh
+# Tres cifras en base 6: 100 = 2·36 + 4·6 + 4 → ra-mok-mok; en Ozh 1, 0, 0 → ois-zu-zu.
+P4|ellos vieron cien estrellas|iresh ra-mok-mok sorinesh korok|ʔoka ʔim zi oruvi ois-zu-zu ral
+# No se transmite: palabra que no está en el léxico.
+P4|nosotros queremos telescopios|—|—|telescopio
+# No se transmite: más de 9 999 (regla R1).
+P4|ellos enviaron diez mil naves|—|—|10000
+# No se transmite: pregunta vacía (la rechaza la CLI antes del pipeline).
+P4||—|—|pregunta vacía
+# Posesivo plural en una pregunta: poseedor delante en Kethari, detrás en Ozh; ʔa- en el verbo.
+P4|¿cuándo visitarán ustedes nuestro mundo?|kom ulesh anir vael dunime ka|venu ʔakesh mar shavi thüm ʔenka wem
+# No se transmite: la corrección de la semana 2 da a teka un concepto de dos palabras
+# ("territorio reclamado"); el parser no maneja sustantivos compuestos y lo retiene.
+P4|ellos no quieren territorios reclamados|—|—|territorio
