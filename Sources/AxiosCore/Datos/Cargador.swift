@@ -70,6 +70,7 @@ private struct Conteo {
 }
 
 extension BaseDatos {
+    @discardableResult
     public func cargar(ruta: String) throws -> ResultadoCarga {
         try cargar(archivo: URL(fileURLWithPath: ruta))
     }
@@ -77,6 +78,7 @@ extension BaseDatos {
     /// Carga un archivo del manual (léxico, reglas, vocabulario) o de señales y
     /// correcciones. Todo ocurre en una transacción; una línea mal formada se
     /// reporta con su número y la carga sigue con las demás.
+    @discardableResult
     public func cargar(archivo: URL) throws -> ResultadoCarga {
         let lineas = try leerLineas(archivo)
         let (tipo, version) = try detectarTipo(lineas, nombre: archivo.lastPathComponent)

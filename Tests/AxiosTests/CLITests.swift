@@ -258,6 +258,51 @@ final class CLITests: XCTestCase {
         XCTAssertEqual(r.traza, "[entrada] cuado llegan\n[lexico] 2 tokens")
     }
 
+    func testCorreccionesSeMuestranSinTraza() throws {
+        let (cli, _) = try nuevaCLI(traductor: Pipeline.traducir)
+        _ = cli.ejecutar(["inicializar"])
+
+        let salida = cli.ejecutar(["traducir", "¿Cuántas nabes enviaron?"])
+        let lineas = salida.components(separatedBy: "\n")
+        XCTAssertEqual(lineas.first, "Corregido: nabes → naves", salida)
+        XCTAssertTrue(lineas.count > 1 && lineas[1].hasPrefix("Kethari: "), salida)
+
+        let sinErrores = cli.ejecutar(["traducir", "queremos paz"])
+        XCTAssertFalse(sinErrores.contains("Corregido:"), sinErrores)
+    }
+
+    func testVariasCorreccionesVanSeparadasPorComa() throws {
+        let falso: CLI.Traductor = { pregunta, bd, _ in
+            RegistroPregunta(
+                fecha: bd.reloj(), original: pregunta,
+                correcciones: [
+                    Correccion(original: "cuado", corregida: "cuando", distancia: 1),
+                    Correccion(original: "nabes", corregida: "naves", distancia: 1),
+                ]
+            )
+        }
+        let (cli, _) = try nuevaCLI(traductor: falso)
+        let salida = cli.ejecutar(["traducir", "cuado llegan las nabes", "--traza"])
+        XCTAssertTrue(salida.contains("\n\nCorregido: cuado → cuando, nabes → naves\nKethari: "), salida)
+    }
+
+    func testConElPipelineCadaPreguntaSeRegistraUnaVez() throws {
+        let (cli, bd) = try nuevaCLI(traductor: Pipeline.traducir)
+        _ = cli.ejecutar(["inicializar"])
+
+        // Una que se traduce, una con número fuera de rango, una con palabra desconocida y una vacía.
+        let preguntas = ["queremos paz", "llegaron 15000 naves", "¿Tienen telescopio?", ""]
+        for (i, pregunta) in preguntas.enumerated() {
+            let salida = cli.ejecutar(["traducir", pregunta])
+            XCTAssertTrue(salida.contains("Registrada como #\(i + 1)"), salida)
+            XCTAssertEqual(bd.preguntas(desde: nil).count, i + 1, pregunta)
+        }
+        let motivos = bd.preguntas(desde: nil).map(\.motivo)
+        XCTAssertNil(motivos[0])
+        XCTAssertTrue(motivos[2]?.contains("telescopio") ?? false, "\(motivos)")
+        XCTAssertEqual(motivos[3], "pregunta vacía")
+    }
+
     // MARK: - historial
 
     func testHistorialFiltrosYFechaInvalida() throws {

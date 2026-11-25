@@ -85,6 +85,11 @@ public struct CLI {
             lineas += traza.fases.map { "[\($0.nombre)] \($0.salida)" }
             lineas.append("")
         }
+        // Las correcciones se muestran siempre: quien pregunta debe saber qué se tradujo en realidad.
+        if !registro.correcciones.isEmpty {
+            let cambios = registro.correcciones.map { "\($0.original) → \($0.corregida)" }
+            lineas.append("Corregido: \(cambios.joined(separator: ", "))")
+        }
         lineas.append("Kethari: \(CLI.resultado(registro.kethari, valida: registro.validaK))")
         lineas.append("Ozh:     \(CLI.resultado(registro.ozh, valida: registro.validaO))")
         if let motivo = registro.motivo {
