@@ -303,6 +303,65 @@ final class CLITests: XCTestCase {
         XCTAssertEqual(motivos[3], "pregunta vacía")
     }
 
+    // MARK: - retro
+
+    func testRetroKethariPregunta() throws {
+        let (cli, _) = try nuevaCLI()
+        _ = cli.ejecutar(["inicializar"])
+        let salida = cli.ejecutar(["retro", "kethari", "kom ulesh vinime ka"])
+        XCTAssertTrue(salida.hasPrefix("español: "), salida)
+        XCTAssertTrue(salida.contains("cuándo"), salida)
+        XCTAssertTrue(salida.contains("ustedes"), salida)
+        XCTAssertTrue(salida.contains("estructura: [INT kom] [S ulesh] [V vinime] [PREG]"), salida)
+    }
+
+    func testRetroOzh() throws {
+        let (cli, _) = try nuevaCLI()
+        _ = cli.ejecutar(["inicializar"])
+        let salida = cli.ejecutar(["retro", "ozh", "lom tho oruvi ilu"])
+        XCTAssertTrue(salida.hasPrefix("español: "), salida)
+        XCTAssertTrue(salida.contains("paz"), salida)
+    }
+
+    func testRetroSegunLaFecha() throws {
+        let (cli, bd) = try nuevaCLI()
+        _ = cli.ejecutar(["inicializar"])                       // 2025-11-18
+        bd.reloj = { [t1] in t1 }
+        _ = cli.ejecutar(["cargar", rutaSistema(try archivoDatos("senales_semana2.txt"))]) // 2025-11-25
+
+        let hoy = cli.ejecutar(["retro", "kethari", "iresh tekaesh nuthal"])
+        XCTAssertTrue(hoy.contains("territorio reclamado"), hoy)
+        XCTAssertFalse(hoy.contains("tierra"), hoy)
+
+        let antes = cli.ejecutar(["retro", "kethari", "iresh tekaesh nuthal", "--fecha", "2025-11-20"])
+        XCTAssertTrue(antes.contains("tierra"), antes)
+        XCTAssertFalse(antes.contains("territorio"), antes)
+        XCTAssertTrue(antes.contains("significados al 2025-11-20"), antes)
+
+        // El mismo día de la carga ya cuenta la corrección.
+        let mismoDia = cli.ejecutar(["retro", "kethari", "--fecha", "2025-11-25", "iresh tekaesh nuthal"])
+        XCTAssertTrue(mismoDia.contains("territorio reclamado"), mismoDia)
+    }
+
+    func testRetroFraseInvalidaMuestraElMotivo() throws {
+        let (cli, _) = try nuevaCLI()
+        _ = cli.ejecutar(["inicializar"])
+        let salida = cli.ejecutar(["retro", "kethari", "kom ulesh vinime"])
+        XCTAssertTrue(salida.hasPrefix("inválida"), salida)
+        XCTAssertFalse(salida.contains("español:"), salida)
+        let motivo = cli.ejecutar(["validar", "kethari", "kom ulesh vinime"])
+        XCTAssertEqual(salida, motivo, "retro debe dar el mismo motivo que el validador")
+    }
+
+    func testRetroUsoYFechaInvalida() throws {
+        let (cli, _) = try nuevaCLI()
+        XCTAssertTrue(cli.ejecutar(["retro"]).hasPrefix("Uso: retro"))
+        XCTAssertTrue(cli.ejecutar(["retro", "es", "hola"]).hasPrefix("Uso: retro"))
+        XCTAssertTrue(cli.ejecutar(["retro", "kethari", "kom ka", "--fecha"]).hasPrefix("Uso: retro"))
+        XCTAssertTrue(cli.ejecutar(["retro", "ozh", "x", "--fecha", "ayer"]).hasPrefix("Fecha no válida: 'ayer'"))
+        XCTAssertTrue(CLI.ayuda.contains("retro <kethari|ozh>"))
+    }
+
     // MARK: - historial
 
     func testHistorialFiltrosYFechaInvalida() throws {

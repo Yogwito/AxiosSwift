@@ -14,6 +14,8 @@ public struct CLI {
           historial [desde AAAA-MM-DD]     lista lo que se tradujo
           palabra <término>                muestra una palabra en las tres lenguas
           validar <kethari|ozh> "<frase>"  comprueba si una frase es correcta en esa lengua
+          retro <kethari|ozh> "<frase>" [--fecha AAAA-MM-DD]
+                                           la pasa al español, con los significados de esa fecha
         """
 
     /// Archivos que carga `inicializar`, en orden. La semana 2 se carga aparte con `cargar`.
@@ -51,6 +53,7 @@ public struct CLI {
         case "historial": return historial(resto)
         case "palabra": return palabra(resto)
         case "validar": return validar(resto)
+        case "retro": return retro(resto)
         case "ayuda", "-h", "--help": return CLI.ayuda
         default: return "Orden desconocida: '\(orden)'\n\n" + CLI.ayuda
         }
@@ -184,6 +187,44 @@ public struct CLI {
         }
         let donde = r.columna.map { " (columna \($0))" } ?? ""
         return "inválida\(donde): \(r.motivo ?? "sin motivo")"
+    }
+
+    // MARK: - retro
+
+    /// Retrotraducción con el `Retrotraductor`. Con `--fecha`, cada palabra se lee con el
+    /// significado vigente al final de ese día (en la zona horaria de la CLI), así una
+    /// corrección cargada ese mismo día ya cuenta.
+    private func retro(_ args: [String]) -> String {
+        let uso = "Uso: retro <kethari|ozh> \"<frase>\" [--fecha AAAA-MM-DD]"
+        guard let primero = args.first, let lengua = Lengua(rawValue: primero.lowercased()), lengua != .es else {
+            return uso
+        }
+        var resto = Array(args.dropFirst())
+        var fecha: Date?
+        if let i = resto.firstIndex(of: "--fecha") {
+            guard i + 1 < resto.count else { return uso }
+            let texto = resto[i + 1]
+            guard let dia = formatoDia.date(from: texto),
+                  let finDelDia = formatoDia.calendar.date(byAdding: .day, value: 1, to: dia) else {
+                return "Fecha no válida: '\(texto)'. Use el formato AAAA-MM-DD, por ejemplo 2026-11-01."
+            }
+            fecha = finDelDia.addingTimeInterval(-0.001)
+            resto.removeSubrange(i...(i + 1))
+        }
+        let frase = resto.joined(separator: " ").trimmingCharacters(in: .whitespaces)
+        guard !frase.isEmpty else { return uso }
+
+        switch Retrotraductor(bd: bd).retrotraducir(frase, desde: lengua, en: fecha) {
+        case .success(let r):
+            var lineas = ["español: \(r.texto)", "estructura: \(r.estructura)"]
+            if let fecha {
+                lineas.append("significados al \(formatoDia.string(from: fecha))")
+            }
+            return lineas.joined(separator: "\n")
+        case .failure(let error):
+            let donde = error.columna.map { " (columna \($0))" } ?? ""
+            return "inválida\(donde): \(error.motivo)"
+        }
     }
 
     // MARK: - palabra
