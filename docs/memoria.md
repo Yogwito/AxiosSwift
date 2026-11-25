@@ -844,4 +844,126 @@ Pares por autor:
 | P4 | 9 | Datos: semana 2 ("tierra" sin forma vigente en Kethari y la señal 9), números en letras en base 6 (26 y 100), lo que no se transmite (palabra desconocida, más de 9 999, pregunta vacía y el concepto de dos palabras "territorio reclamado") y posesivo plural en una pregunta |
 | Total | 17 de 30 | |
 
+## CLI e historial (P4)
+
+La CLI (`Sources/AxiosCore/CLI/CLI.swift`) no imprime: `CLI.ejecutar(_:)` devuelve el texto
+y `Sources/axios/main.swift` lo muestra. Así cada orden se prueba en `CLITests` sin capturar
+la salida estándar.
+
+### Órdenes
+
+| Orden | Qué hace |
+|-------|----------|
+| `traducir "<pregunta>" [--traza]` | Pasa la pregunta por `Pipeline.traducir`, muestra Kethari y Ozh (válida, rechazada o sin traducción) y el motivo, y la registra. Con `--traza`, antes muestra la salida de cada fase |
+| `cargar <archivo>` | Carga un archivo de léxico, reglas, vocabulario o señales y correcciones. El tipo se detecta por el contenido; informa nuevas, omitidas y errores con su línea |
+| `inicializar` | Carga en orden `lexico_v0.7`, `reglas_v0.7`, `vocab_es_v0.7`, `numeros_es_v0.7` y `senales_semana1` desde `./data` (la semana 2 va aparte, con `cargar`) |
+| `historial [desde AAAA-MM-DD]` | Lista las preguntas registradas, con fecha, resultado y motivo |
+| `palabra <término>` | Lo vigente en las tres lenguas, todas las versiones con sus fechas y archivo, y las señales donde aparece (también con plural o negación) |
+| `validar <kethari\|ozh> "<frase>"` | El validador de esa lengua: estructura si es válida, motivo y columna si no |
+| `retro <kethari\|ozh> "<frase>" [--fecha AAAA-MM-DD]` | La retrotraducción de P1 (`Retrotraductor`). Si la frase no valida, muestra el motivo del validador. Con `--fecha`, cada palabra se lee con el significado vigente al final de ese día |
+
+**Línea `Corregido:`.** Si el corrector cambió alguna palabra, `traducir` lo muestra siempre,
+también sin `--traza`, antes de los resultados: `Corregido: nabes → naves` (varias, separadas
+por coma). Quien pregunta tiene que saber qué se tradujo en realidad.
+
+### Registro único de cada pregunta
+
+La regla "ninguna pregunta se pierde" se cumple en un solo sitio: `CLI.traducir` llama a
+`bd.registrar` exactamente una vez por pregunta, después de obtener el registro. El pipeline
+no escribe en la BD: siempre devuelve un `RegistroPregunta` (con traducciones o con el
+motivo) y no lanza errores. Así:
+
+- no hay doble registro, porque solo hay un llamado a `registrar`;
+- se registran también la pregunta vacía (motivo "pregunta vacía", sin llegar al pipeline) y
+  las que fallan en cualquier fase;
+- el pipeline se puede probar sin BD de escritura y la CLI con un traductor falso.
+
+Lo prueban `CLITests.testConElPipelineCadaPreguntaSeRegistraUnaVez` (cuenta las filas
+después de cada pregunta, incluidas las que fallan) y `testTraducirVacioSeRegistra`.
+
+### Historial, fechas y zona horaria
+
+`pregunta.fecha` se guarda como instante (segundos desde 1970, sin zona). La CLI recibe la
+zona horaria en su `init` (`TimeZone.current` en el programa, UTC fija en los tests) y la usa
+para leer `desde AAAA-MM-DD` (el inicio de ese día en esa zona) y para mostrar las fechas.
+Una fecha mal escrita ("ayer", "2026-13-45") se rechaza con un mensaje, no se adivina.
+
+### Base de datos: `AXIOS_DB`
+
+El programa abre `axios.db` en el directorio actual, o la ruta de la variable de entorno
+`AXIOS_DB` si está definida (el CI la pone en el directorio temporal del runner). Si no se
+puede abrir, lo dice por la salida de errores y termina con código 1. Para empezar de cero
+basta con borrar el archivo y volver a `inicializar`.
+
+### "Qué se envió, cuándo y qué significaba cada palabra entonces"
+
+Se responde cruzando dos fechas que la BD ya guarda:
+
+1. **Qué se envió y cuándo:** `historial` da `pregunta.fecha` y las frases en Kethari y Ozh
+   de cada pregunta.
+2. **Qué significaba cada palabra entonces:** en `lexico`, una corrección no borra filas:
+   cierra la vigente (`vigente_hasta`) e inserta la nueva (`vigente_desde`). La fila válida en
+   la fecha *f* es la que cumple `vigente_desde <= f` y (`vigente_hasta` nulo o `> f`).
+   `palabra` muestra esos intervalos y `retro --fecha` los aplica a una frase entera.
+
+Ejemplo real (BD limpia: `inicializar`, tres preguntas y luego `cargar` de la semana 2):
+
+```
+$ axios historial
+#1  2026-11-24 20:01  ¿Cuándo llegan?  →  K: kom iresh vin ka | O: ʔasur mar oruvi wem
+#2  2026-11-24 20:01  ¿Cuántas nabes enviaron?  →  K: kai kumesh salok ka | O: ʔoka ʔadra mar gor wak
+#3  2026-11-24 20:01  no queremos tierra  →  K: — | O: ne lom zi ʔenka mak  [Kethari sin traducción: tierra: está en el léxico pero no tiene forma vigente en Kethari]
+
+$ axios palabra teka
+Palabra: teka
+
+Vigente:
+  español: territorio reclamado  ·  kethari: teka  ·  ozh: —
+
+Versiones:
+  kethari: teka = tierra  [2026-11-24 → 2026-11-24]  (lexico_v0.7.txt)
+  kethari: teka = territorio reclamado  [2026-11-24 → vigente]  (senales_semana2.txt)
+
+Señales:
+  día 8 kethari: iresh tekaesh nuthal
+```
+
+Con el manual cargado una semana antes que la corrección, la misma frase se lee distinto
+según la fecha:
+
+```
+$ axios retro kethari "iresh tekaesh nuthal" --fecha 2026-11-20
+español: ellas/ellos · no querer · tierra [plural]
+estructura: [S iresh] [O tekaesh] [V nuthal]
+significados al 2026-11-20
+
+$ axios retro kethari "iresh tekaesh nuthal"
+español: ellas/ellos · no querer · territorio reclamado [plural]
+estructura: [S iresh] [O tekaesh] [V nuthal]
+```
+
+Lo prueban `CLITests.testRetroSegunLaFecha`, `testHistorialFiltrosYFechaInvalida`,
+`testCargarSemana2YPalabraTeka` y `RetrotraductorTests.testSignificadoSegunLaFecha`.
+
 ## Declaración de uso de IA
+
+El traductor **no usa inteligencia artificial en ejecución**: no hace llamadas de red ni usa
+modelos de lenguaje; cada traducción sale del manual (`data/`), de las reglas y del código
+escrito por el equipo. Durante el desarrollo el equipo sí usó herramientas de IA, como
+permite la sección 7 del enunciado. Cada integrante declara abajo cómo las usó.
+
+### P1 — (nombre)
+
+Pendiente de redactar por el integrante.
+
+### P2 — (nombre)
+
+Pendiente de redactar por el integrante.
+
+### P3 — (nombre)
+
+Pendiente de redactar por el integrante.
+
+### P4 — Juan Sebastián Arias Rueda
+
+Pendiente: pegar la declaración de P4.
