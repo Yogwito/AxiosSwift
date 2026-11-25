@@ -25,5 +25,10 @@ do {
     exit(1)
 }
 
-let cli = CLI(bd: bd, raizDatos: directorioActual.appendingPathComponent("data", isDirectory: true))
+// El pipeline tiene la misma firma que CLI.Traductor. No registra nada: la CLI
+// guarda cada pregunta una sola vez, también cuando el pipeline no pudo traducirla.
+let cli = CLI(
+    bd: bd, traductor: Pipeline.traducir,
+    raizDatos: directorioActual.appendingPathComponent("data", isDirectory: true)
+)
 print(cli.ejecutar(Array(CommandLine.arguments.dropFirst())))

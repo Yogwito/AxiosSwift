@@ -783,6 +783,13 @@ pero no siempre iguales a la transcripción, por decisiones documentadas:
 - **"¿Cuántos ciclos esperarán ustedes?" en Kethari** se traduce, pero el interrogativo
   queda separado de su nombre (`kai ulesh lunesh tepime ka`), porque la regla
   `posicion_interrogativo = inicio` lo manda al principio de la frase.
+- **"territorio reclamado" (corrección de la semana 2).** La corrección da a `teka` un
+  significado de dos palabras. En el español no hay un sustantivo compuesto "territorio
+  reclamado" (ni "territorio" en `vocab_es`), así que "Ellos no quieren territorios
+  reclamados" (señal 8) se detiene en el analizador sintáctico con
+  `palabra desconocida 'territorio'` y su columna. El sistema retiene la frase y explica el
+  motivo en vez de inventar una forma; la pregunta queda registrada sin traducción. Lo prueba
+  el par `ellos no quieren territorios reclamados|—|—|territorio` de `Tests/pares.txt`.
 - **Frases que no llegan a los generadores.** Las que el analizador sintáctico rechaza
   ("Antes enviamos…", "no los vimos a ustedes", "ninguna nave", la voz desconocida de la
   señal 6, "Ya los escuchamos") se informan con su columna en esa fase (bitácora
@@ -790,10 +797,51 @@ pero no siempre iguales a la transcripción, por decisiones documentadas:
 
 ### Pruebas que lo respaldan
 
-`ParesTests.testOchoParesDeNumerosYPosesivos` lleva ocho frases en español por el
-analizador sintáctico, los dos generadores y los dos validadores con los datos reales:
-números en base 6 y 10 (6, 15, 26, 36 y 12) y posesivos delante y detrás, también en una
-pregunta. Los casos de error están en `DesconocidasTests`, `GeneradorKethariTests`,
+Los ocho pares de P3 en `Tests/pares.txt` (ver [Pruebas](#pruebas)) llevan frases en
+español por todo el pipeline con los datos reales: números en base 6 y 10 (6, 15, 26, 36 y
+12) y posesivos delante y detrás, también en una pregunta. Los casos de error están en `DesconocidasTests`, `GeneradorKethariTests`,
 `GeneradorOzhTests` y `NumerosTests`.
+
+## Pruebas
+
+### Pares pregunta → traducción (rúbrica #23)
+
+Los pares están en `Tests/pares.txt` (UTF-8, LF, separador `|`), no en el código, para que
+cualquiera agregue uno sin tocar Swift:
+
+```
+# autor|español|kethari esperado|ozh esperado[|trozo del motivo]
+P4|ellos enviaron veintiséis mensajes|iresh mok-ra ombraesh salok|ʔoka dra zi oruvi dav-sab vesh
+P4|no queremos tierra|—|ne lom zi ʔenka mak
+P4|ellos enviaron diez mil naves|—|—|10000
+```
+
+- `—` en una lengua: esa lengua **no** debe traducirse (palabra sin forma vigente, sin
+  respaldo o rechazada por el validador).
+- Si no se traduce a ninguna, un 5.º campo da un trozo del motivo que debe aparecer en el
+  registro ("telescopio", "10000", "pregunta vacía").
+- Las líneas que empiezan con `#` y las vacías se ignoran. El resultado esperado se calcula a
+  mano desde el manual (`data/` y esta memoria), no copiando lo que imprime el sistema.
+
+`ParesTests` lee el archivo desde la raíz del repositorio (`raizRepo()`), abre una BD
+`:memory:`, ejecuta `inicializar` y carga `senales_semana2.txt`, y pasa cada pregunta por la
+CLI con `Pipeline.traducir`, igual que `axios traducir` (así la pregunta vacía también se
+prueba). Una lengua cuenta como traducida solo si hay texto y su validador lo aprobó.
+
+| Test | Qué comprueba |
+|------|---------------|
+| `testCadaParDaLaTraduccionEsperada` | Cada par da lo esperado en Kethari, en Ozh y en el motivo, y se registra una sola vez. No se detiene en el primer fallo: cada diferencia se informa con línea del archivo, autor, pregunta, esperado y obtenido |
+| `testLosEsperadosSonValidosYHayAlMenosTreinta` | Toda traducción esperada que no es `—` pasa `validarKethari` / `validarOzh`, así un par mal escrito se detecta solo. Se omite (`XCTSkip`) mientras haya menos de 30 pares |
+| `testCadaAutorTieneAlMenosOchoPares` | Cada integrante (P1 a P4) tiene al menos 8 pares. Se omite mientras solo falten los de P1 y P2, y el mensaje dice cuántos faltan a cada uno; si falta en P3 o P4, falla |
+
+Pares por autor:
+
+| Autor | Pares | Enfoque |
+|-------|-------|---------|
+| P1 | 0 (faltan 8) | — |
+| P2 | 0 (faltan 8) | — |
+| P3 | 8 | Números en base 6 y 10 y posesivos |
+| P4 | 9 | Datos: semana 2 ("tierra" sin forma vigente en Kethari y la señal 9), números en letras en base 6 (26 y 100), lo que no se transmite (palabra desconocida, más de 9 999, pregunta vacía y el concepto de dos palabras "territorio reclamado") y posesivo plural en una pregunta |
+| Total | 17 de 30 | |
 
 ## Declaración de uso de IA

@@ -2,61 +2,145 @@ import XCTest
 import Foundation
 @testable import AxiosCore
 
-/// Ocho pares español → Kethari / Ozh con números y posesivos, de punta a punta:
-/// la frase pasa por el analizador sintáctico (P2), los dos generadores (P3) y los
-/// dos validadores (P4), con los datos reales de data/. Los números llegan en cifras,
-/// como los deja el normalizador de P1.
+/// Pares pregunta → traducción esperada (rúbrica #23), leídos de `Tests/pares.txt`.
+/// Cada pregunta entra por la CLI con `Pipeline.traducir`, igual que en `axios traducir`,
+/// con el léxico, las reglas, las señales de la semana 1 y la semana 2 cargados.
 final class ParesTests: XCTestCase {
-    private struct Par {
+    /// "—" en el archivo: esa lengua no debe traducirse.
+    static let sinTraduccion = "—"
+    static let autores = ["P1", "P2", "P3", "P4"]
+    static let minimoPorAutor = 8
+    static let minimoTotal = 30
+
+    struct Par {
+        let linea: Int
+        let autor: String
         let espanol: String
-        let kethari: String
-        let ozh: String
+        let kethari: String?
+        let ozh: String?
+        let motivo: String?
+
+        var descripcion: String { "pares.txt:\(linea) [\(autor)] \"\(espanol)\"" }
     }
 
-    private let pares: [Par] = [
-        // Señal 3: número en base 6 / base 10; plural -esh en Kethari, sin plural en Ozh.
-        Par(espanol: "15 naves llegaron", kethari: "ra-sel kumesh vinok", ozh: "ʔoka sur zi ois-ulo gor"),
-        // Señal 7: seis es "ti-vo" (1·6 + 0) en Kethari y una sola cifra en Ozh.
-        Par(espanol: "nosotros esperaremos 6 ciclos", kethari: "anir ti-vo lunesh tepime", ozh: "venu bo zi ʔenka sab drüm"),
-        // Señal 10: 26 = 4·6 + 2.
-        Par(espanol: "nosotros vimos 26 estrellas", kethari: "anir mok-ra sorinesh korok", ozh: "ʔoka ʔim zi ʔenka dav-sab ral"),
-        // Tres cifras en base 6: 36 = 1·36 + 0·6 + 0.
-        Par(espanol: "36 naves llegarán", kethari: "ti-vo-vo kumesh vinime", ozh: "venu sur zi kru-sab gor"),
-        // Señal 8: el poseedor va delante en Kethari y detrás en Ozh.
-        Par(espanol: "ellos visitaron nuestro mundo", kethari: "iresh anir vael dunok", ozh: "ʔoka kesh zi oruvi thüm ʔenka"),
-        // Posesivo en el sujeto.
-        Par(espanol: "mi nave llegó", kethari: "an kum vinok", ozh: "ʔoka sur zi gor ʔen"),
-        // Número y posesivo juntos: [número] [poseedor] nombre / [número] nombre [poseedor].
-        Par(espanol: "nuestras 12 naves llegarán", kethari: "ra-vo anir kumesh vinime", ozh: "venu sur zi ois-dav gor ʔenka"),
-        // Número y posesivo en una pregunta: ka al final en Kethari, interrogativo al final en Ozh.
-        Par(espanol: "¿ cuándo llegarán nuestras 5 naves ?", kethari: "kom pai anir kumesh vinime ka", ozh: "venu ʔasur mar ulo gor ʔenka wem"),
-    ]
+    // MARK: - Lectura del archivo
 
-    func testOchoParesDeNumerosYPosesivos() throws {
-        let bd = bdConVocabularioEspanol
-        let analizador = AnalizadorSintactico(lexicon: bd)
-        let kethari = GeneradorKethari(lexicon: bd)
-        let ozh = GeneradorOzh(lexicon: bd)
+    static func leerPares() throws -> [Par] {
+        let url = try raizRepo().appendingPathComponent("Tests").appendingPathComponent("pares.txt")
+        let texto = try String(contentsOf: url, encoding: .utf8)
+        var pares: [Par] = []
+        for (i, linea) in texto.components(separatedBy: "\n").enumerated() {
+            let numero = i + 1
+            let limpia = linea.trimmingCharacters(in: .whitespaces)
+            if limpia.isEmpty || limpia.hasPrefix("#") { continue }
+            let campos = limpia.components(separatedBy: "|").map { $0.trimmingCharacters(in: .whitespaces) }
+            guard campos.count == 4 || campos.count == 5 else {
+                XCTFail("pares.txt:\(numero): se esperaban 4 o 5 campos y hay \(campos.count): \(limpia)")
+                continue
+            }
+            let lengua: (String) -> String? = { $0 == sinTraduccion ? nil : $0 }
+            let par = Par(
+                linea: numero, autor: campos[0], espanol: campos[1],
+                kethari: lengua(campos[2]), ozh: lengua(campos[3]),
+                motivo: campos.count == 5 ? campos[4] : nil
+            )
+            if par.kethari == nil && par.ozh == nil && par.motivo == nil {
+                XCTFail("\(par.descripcion): no se traduce a ninguna lengua y falta el trozo del motivo")
+            }
+            pares.append(par)
+        }
+        return pares
+    }
 
-        XCTAssertEqual(pares.count, 8)
+    // MARK: - Base de datos
+
+    private func nuevaCLI() throws -> (CLI, BaseDatos) {
+        let bd = try BaseDatos(ruta: ":memory:")
+        let cli = CLI(
+            bd: bd, traductor: Pipeline.traducir, raizDatos: try raizRepo().appendingPathComponent("data"),
+            zonaHoraria: TimeZone(identifier: "UTC")!
+        )
+        _ = cli.ejecutar(["inicializar"])
+        try bd.cargar(archivo: archivoDatos("senales_semana2.txt"))
+        return (cli, bd)
+    }
+
+    // MARK: - Tests
+
+    /// Traduce todos los pares y reporta cada diferencia; no se detiene en la primera.
+    func testCadaParDaLaTraduccionEsperada() throws {
+        let pares = try ParesTests.leerPares()
+        let (cli, bd) = try nuevaCLI()
+        XCTAssertFalse(pares.isEmpty)
+
         for par in pares {
-            let oracion: Oracion
-            switch analizador.analizar(tokens(par.espanol)) {
-            case .success(let o): oracion = o
-            case .failure(let error):
-                XCTFail("\(par.espanol): \(error)")
+            let antes = bd.preguntas(desde: nil).count
+            _ = cli.ejecutar(["traducir", par.espanol])
+            let registradas = bd.preguntas(desde: nil)
+            guard registradas.count == antes + 1, let r = registradas.last else {
+                XCTFail("\(par.descripcion): se registraron \(registradas.count - antes) preguntas en vez de 1")
                 continue
             }
 
-            let k = try kethari.traducir(oracion)
-            XCTAssertEqual(k.texto, par.kethari, par.espanol)
-            XCTAssertTrue(k.completa, par.espanol)
-            XCTAssertTrue(validarKethari(k.texto, lexicon: bd).valida, "\(par.espanol) → \(k.texto)")
+            // Una lengua cuenta como traducida solo si hay texto y el validador lo aprobó.
+            let k = r.validaK ? r.kethari : nil
+            let o = r.validaO ? r.ozh : nil
+            comparar(par, "Kethari", esperado: par.kethari, obtenido: k, registro: r)
+            comparar(par, "Ozh", esperado: par.ozh, obtenido: o, registro: r)
 
-            let o = try ozh.traducir(oracion)
-            XCTAssertEqual(o.texto, par.ozh, par.espanol)
-            XCTAssertTrue(o.completa, par.espanol)
-            XCTAssertTrue(validarOzh(o.texto, lexicon: bd).valida, "\(par.espanol) → \(o.texto)")
+            if let trozo = par.motivo, !(r.motivo ?? "").contains(trozo) {
+                XCTFail("\(par.descripcion): motivo\n  esperado: …\(trozo)…\n  obtenido: \(r.motivo ?? "(sin motivo)")")
+            }
         }
+    }
+
+    private func comparar(_ par: Par, _ lengua: String, esperado: String?, obtenido: String?, registro r: RegistroPregunta) {
+        guard esperado != obtenido else { return }
+        let motivo = r.motivo.map { "\n  motivo:   \($0)" } ?? ""
+        XCTFail(
+            "\(par.descripcion): \(lengua)\n  esperado: \(esperado ?? ParesTests.sinTraduccion)"
+                + "\n  obtenido: \(obtenido ?? ParesTests.sinTraduccion)\(motivo)"
+        )
+    }
+
+    /// Las traducciones esperadas deben ser frases válidas: así un par mal escrito se
+    /// detecta aunque el traductor diera lo mismo. Además, el archivo debe llegar a 30 pares.
+    func testLosEsperadosSonValidosYHayAlMenosTreinta() throws {
+        let pares = try ParesTests.leerPares()
+        let (_, bd) = try nuevaCLI()
+        for par in pares {
+            if let k = par.kethari {
+                let v = validarKethari(k, lexicon: bd)
+                XCTAssertTrue(v.valida, "\(par.descripcion): Kethari \"\(k)\" no es válido: \(v.motivo ?? "")")
+            }
+            if let o = par.ozh {
+                let v = validarOzh(o, lexicon: bd)
+                XCTAssertTrue(v.valida, "\(par.descripcion): Ozh \"\(o)\" no es válido: \(v.motivo ?? "")")
+            }
+        }
+        if pares.count < ParesTests.minimoTotal {
+            throw XCTSkip("Hay \(pares.count) pares; faltan \(ParesTests.minimoTotal - pares.count) para llegar a \(ParesTests.minimoTotal)")
+        }
+    }
+
+    /// Cada integrante aporta al menos 8 pares. Mientras falten los de P1 y P2 se omite.
+    func testCadaAutorTieneAlMenosOchoPares() throws {
+        let pares = try ParesTests.leerPares()
+        var porAutor: [String: Int] = [:]
+        for par in pares { porAutor[par.autor, default: 0] += 1 }
+
+        let desconocidos = Set(porAutor.keys).subtracting(ParesTests.autores)
+        XCTAssertTrue(desconocidos.isEmpty, "Autores desconocidos en pares.txt: \(desconocidos.sorted())")
+
+        let faltan = ParesTests.autores.compactMap { autor -> (String, Int)? in
+            let n = porAutor[autor, default: 0]
+            return n < ParesTests.minimoPorAutor ? (autor, ParesTests.minimoPorAutor - n) : nil
+        }
+        guard !faltan.isEmpty else { return }
+        let mensaje = "Faltan pares: " + faltan.map { "\($0.0) \($0.1)" }.joined(separator: ", ")
+        if faltan.allSatisfy({ ["P1", "P2"].contains($0.0) }) {
+            throw XCTSkip(mensaje)
+        }
+        XCTFail(mensaje)
     }
 }
