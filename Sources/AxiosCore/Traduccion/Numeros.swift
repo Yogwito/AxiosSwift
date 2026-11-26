@@ -14,8 +14,8 @@ public enum ErrorNumero: Error, Equatable {
 ///
 /// No sabe nada de ninguna lengua en concreto: la base sale de la regla `base`,
 /// el separador de `separador_numero` y cada cifra d de la traducción de la
-/// palabra española "d". Así Kethari cuenta en base 6 (15 = 2·6 + 3 → "ra-sel")
-/// porque lo dicen los datos, no el código.
+/// palabra española "d". Así Kethari escribe 15 con dos cifras (ver señal 3 en
+/// data/senales_semana1.txt) porque lo dicen los datos, no el código.
 public struct ConversorNumeros {
     let lexicon: Lexicon
     let lengua: Lengua

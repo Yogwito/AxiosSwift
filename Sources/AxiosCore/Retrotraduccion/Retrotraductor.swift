@@ -7,7 +7,8 @@ import Foundation
 public struct Retrotraduccion: Equatable {
     /// "¿cuándo · ustedes · llegar/venir [futuro]?"
     public var texto: String
-    /// La estructura que dio el validador: "[INT kom] [S ulesh] [V vinime] [PREG]".
+    /// La estructura que dio el validador: "[INT w1] [S w2] [V w3] [PREG]" (señal 5 de Kethari en
+    /// data/senales_semana1.txt).
     public var estructura: String
 }
 
@@ -39,7 +40,7 @@ public struct Retrotraductor {
         return .success(Retrotraduccion(texto: lector.glosa(Retrotraductor.partes(estructura)), estructura: estructura))
     }
 
-    /// "[S ir] [O thüm ʔenka] [PREG]" → [("S", ["ir"]), ("O", ["thüm", "ʔenka"]), ("PREG", [])]
+    /// "[S w1] [O w2 w3] [PREG]" → [("S", ["w1"]), ("O", ["w2", "w3"]), ("PREG", [])]
     static func partes(_ estructura: String) -> [(etiqueta: String, palabras: [String])] {
         var resultado: [(etiqueta: String, palabras: [String])] = []
         var actual: String?
@@ -194,7 +195,7 @@ private struct Lector {
         return (w, false, nil, false)
     }
 
-    /// Ozh: la marca del principio de la oración ("ʔoka" pasado, "venu" futuro).
+    /// Ozh: la marca del principio de la oración (`marca_pasado` o `marca_futuro`).
     func marcaDeTiempo(_ w: String) -> Tiempo? {
         if w == regla("marca_pasado") { return .pasado }
         if w == regla("marca_futuro") { return .futuro }
