@@ -44,3 +44,27 @@ P4|¿cuándo visitarán ustedes nuestro mundo?|kom ulesh anir vael dunime ka|ven
 # No se transmite: la corrección de la semana 2 da a teka un concepto de dos palabras
 # ("territorio reclamado"); el parser no maneja sustantivos compuestos y lo retiene.
 P4|ellos no quieren territorios reclamados|—|—|territorio
+
+# --- P2: tiempos, negación, posesivos, sujeto omitido e interrogativos --------------
+# Kethari: S O V, verbo = [nu]raíz[ok|ime]. Ozh: [ʔoka|venu] [ne] V partícula S O [interrogativo].
+# Pasado + negación + posesivo plural en el objeto: nu-rhu-ok; poseedor delante en Kethari
+# (anir ombraesh) y detrás en Ozh (vesh ʔenka); ʔoka abre la frase y ne va detrás.
+P2|ellos no escucharon nuestros mensajes|iresh anir ombraesh nurhuok|ʔoka ne nem zi oruvi vesh ʔenka
+# "ir a" + infinitivo = futuro (R9). "vamos" es 1.ª plural y el sujeto omitido se repone
+# con nosotros (anir / ʔenka). 8 = 1·6 + 2 → ti-ra en Kethari; tok en Ozh, sin plural.
+P2|vamos a enviar 8 mensajes|anir ti-ra ombraesh salime|venu dra zi ʔenka tok vesh
+# Presente (sin sufijo ni marca) con la forma supletiva "veo"; posesivo de 2.ª persona.
+P2|yo veo tu nave|an ul kum kor|ʔim zi ʔen gor sha
+# "qué" pregunta por el objeto (f=objeto) y no hay otro objeto. Futuro simple. Sin tildes
+# ni signos: es pregunta porque hay palabra interrogativa (R8).
+P2|que enviaran ustedes|kel ulesh salime ka|venu ʔadra mar shavi wu
+# "cuándo" es circunstancial; el sujeto es el nombre de detrás que concuerda (R4). Sin
+# tilde "llego" es 1.ª del presente o 3.ª del pasado: la concordancia con "tu mensaje" elige el pasado (R6).
+P2|cuando llego tu mensaje|kom ul ombra vinok ka|ʔoka ʔasur mar vesh sha wem
+# "dónde" + estar (mi / ha) en presente; posesivo plural "mis" → kumesh en Kethari, gor en Ozh.
+P2|donde estan mis naves|dor an kumesh mi ka|ʔaha mar gor ʔen wor
+# "cuántas naves" es el sujeto (concuerda con el verbo); el objeto lleva posesivo.
+# kai va al inicio en Kethari y wak al final en Ozh.
+P2|¿cuántas naves visitaron nuestro planeta?|kai kumesh anir vael dunok ka|ʔoka ʔakesh mar gor thüm ʔenka wak
+# "quién" es el sujeto (R5): no hay otro sujeto; negación en una pregunta; el artículo se descarta.
+P2|¿quién no escuchó el mensaje?|sem ombra nurhuok ka|ʔoka ne ʔanem mar vesh wis
