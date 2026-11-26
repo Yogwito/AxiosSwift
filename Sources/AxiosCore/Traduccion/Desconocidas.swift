@@ -7,7 +7,8 @@ public struct PalabraSinRespaldo: Equatable {
         /// La palabra española no está en el léxico.
         case noEstaEnElLexico
         /// Está en el léxico, pero no tiene forma vigente en esa lengua (celda vacía
-        /// o significado cerrado por una corrección, como teka en la semana 2).
+        /// o significado cerrado por una corrección, como la CORRECCION de Kethari en
+        /// data/senales_semana2.txt).
         case sinFormaEnLaLengua
         /// Un número que no se puede escribir con las cifras y la base de la lengua.
         case numero(ErrorNumero)

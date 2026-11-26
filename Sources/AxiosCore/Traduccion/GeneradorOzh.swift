@@ -85,7 +85,8 @@ public struct GeneradorOzh {
     }
 
     /// Sintagma nominal: [número] nombre [poseedor]. Ozh no marca el plural
-    /// (`plural = no`): "quince naves" es "ois-ulo gor", con el nombre igual.
+    /// (`plural = no`): en "quince naves" (señal 3 de Ozh en data/senales_semana1.txt)
+    /// el nombre queda igual.
     private func sintagma(_ sn: SN) throws -> [String] {
         let marcaPlural = BaseDatos.clave(try base.regla("plural")) != "no"
         guard !marcaPlural else { throw ErrorGeneracion.faltaRegla("plural", .ozh) }

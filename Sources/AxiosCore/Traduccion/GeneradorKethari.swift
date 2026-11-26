@@ -65,8 +65,9 @@ public struct GeneradorKethari {
     }
 
     /// Pronombre personal (también el poseedor) por su lema en el léxico.
-    /// "nosotros" da siempre anir (excluyente): el español no distingue si el
-    /// oyente está incluido, así que anul no se genera (bitácora 2026-11-22).
+    /// "nosotros" da siempre la forma Kethari de "nosotros" (excluyente): el español no
+    /// distingue si el oyente está incluido, así que la de "nosotros incluyente" no se
+    /// genera (bitácora 2026-11-22).
     private func pronombre(_ p: Pronombre) throws -> String {
         try base.palabra(p.lema)
     }

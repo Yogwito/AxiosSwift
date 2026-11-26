@@ -81,7 +81,8 @@ struct BaseGenerador {
     /// Sintagma nominal: número, poseedor y nombre, cada uno donde digan
     /// `posicion_numero` y `posicion_poseedor`. Cómo se marca el plural depende de
     /// la lengua, así que lo decide `pluralizar` (Kethari agrega un sufijo, Ozh nada).
-    /// Los pronombres plurales ya son palabras propias del léxico (ulesh, shavi).
+    /// Los pronombres plurales ya son palabras propias del léxico (la forma de "ustedes"
+    /// en cada lengua).
     func sintagma(_ sn: SN, pluralizar: (String) throws -> String) throws -> [String] {
         switch sn.nucleo {
         case .pronombre(let p):
