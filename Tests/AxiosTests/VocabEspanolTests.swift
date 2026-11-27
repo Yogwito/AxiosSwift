@@ -83,16 +83,16 @@ final class VocabEspanolTests: XCTestCase {
         XCTAssertEqual(r.version, "0.7")
         XCTAssertEqual(r.errores, [])
         XCTAssertEqual(r.omitidas, 0)
-        XCTAssertEqual(r.nuevas, 104)
-        XCTAssertEqual(try bd.contarFilas("vocab_es"), 104)
+        XCTAssertEqual(r.nuevas, 116)
+        XCTAssertEqual(try bd.contarFilas("vocab_es"), 116)
     }
 
     func testRecargarVocabEsEsIdempotente() throws {
         let bd = try bdConVocabulario()
         let r = try bd.cargar(archivo: archivoDatos("vocab_es_v0.7.txt"))
         XCTAssertEqual(r.nuevas, 0)
-        XCTAssertEqual(r.omitidas, 104)
-        XCTAssertEqual(try bd.contarFilas("vocab_es"), 104)
+        XCTAssertEqual(r.omitidas, 116)
+        XCTAssertEqual(try bd.contarFilas("vocab_es"), 116)
     }
 
     func testEntradasEspanolIgnoraTildes() throws {
@@ -209,6 +209,29 @@ final class VocabEspanolTests: XCTestCase {
         for palabra in ["qué", "cuándo", "dónde", "cuántos", "quién"] {
             XCTAssertTrue(interrogativos.contains { $0.forma == BaseDatos.clave(palabra) }, palabra)
         }
+    }
+
+    /// Cada verbo del léxico (y cada infinitivo de vocab_es) tiene una fila de
+    /// transitividad con un valor válido del rasgo tr (regla R4), y no hay filas de
+    /// transitividad para palabras que no son verbos.
+    func testCadaVerboDelLexicoDeclaraSuTransitividad() throws {
+        let lexico = try String(contentsOf: archivoDatos("lexico_v0.7.txt"), encoding: .utf8)
+        let verbosLexico = lexico.split(whereSeparator: \.isNewline)
+            .filter { !$0.hasPrefix("#") }
+            .map { $0.split(separator: "|", omittingEmptySubsequences: false).map(String.init) }
+            .filter { $0.count == 4 && $0[3] == "verbo" }
+            .map { BaseDatos.clave($0[0]) }
+        XCTAssertEqual(verbosLexico.count, 11)
+        let filas = try filasDelArchivo()
+        let infinitivos = filas.filter { $0.categoria == "infinitivo" }.map(\.forma)
+        let transitividad = filas.filter { $0.categoria == "transitividad" }
+        for verbo in verbosLexico + infinitivos {
+            let fila = transitividad.first { $0.forma == verbo }
+            XCTAssertNotNil(fila, "falta la fila de transitividad de \(verbo)")
+            XCTAssertTrue(["transitivo", "intransitivo", "copulativo"].contains(fila?.rasgos["tr"] ?? ""), verbo)
+            XCTAssertEqual(fila?.lemas, [verbo])
+        }
+        XCTAssertEqual(Set(transitividad.map(\.forma)), Set(verbosLexico + infinitivos), "solo verbos")
     }
 
     /// La perífrasis "ir a": su forma es un verbo conocido, su lema una preposición y

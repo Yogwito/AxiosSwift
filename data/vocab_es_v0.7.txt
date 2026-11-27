@@ -15,6 +15,7 @@
 #          pegada al infinitivo completo, como en el futuro: llegar-án)
 #   f = qué pregunta un interrogativo: sujeto, objeto o circunstancial (regla R5 de la BNF)
 #   resultado = tiempo que da una perífrasis ("van a llegar" → futuro)
+#   tr = transitividad de un verbo: transitivo, intransitivo o copulativo (regla R4)
 # En las terminaciones el lema es la clase de verbo (ar, er, ir) a la que se aplican.
 # La categoría de las terminaciones lleva el tiempo porque vocab_es no admite dos filas
 # con la misma forma y categoría (-amos es presente y pasado de los verbos en -ar).
@@ -95,6 +96,23 @@ estuvo|estar|verbo|p=3;n=sg;t=pasado
 
 # --- Infinitivos que no están en el léxico (no tienen traducción propia) ---------
 ir|ir|infinitivo|
+
+# --- Transitividad: si el verbo pide objeto (regla R4 de la BNF) ---------------
+# Con un verbo transitivo, un nombre detrás del verbo es el objeto salvo que otro
+# sintagma ya lo sea: "¿Vieron nuestras naves?" = (ellos) vieron nuestras naves.
+# Los intransitivos y copulativos dejan que la concordancia decida ("Llegarán 15 naves").
+ver|ver|transitividad|tr=transitivo
+enviar|enviar|transitividad|tr=transitivo
+querer|querer|transitividad|tr=transitivo
+escuchar|escuchar|transitividad|tr=transitivo
+visitar|visitar|transitividad|tr=transitivo
+esperar|esperar|transitividad|tr=transitivo
+llegar|llegar|transitividad|tr=intransitivo
+venir|venir|transitividad|tr=intransitivo
+hablar|hablar|transitividad|tr=intransitivo
+ir|ir|transitividad|tr=intransitivo
+ser|ser|transitividad|tr=copulativo
+estar|estar|transitividad|tr=copulativo
 
 # --- Perífrasis: verbo en el tiempo t + la preposición del lema + infinitivo -----
 # "van a llegar" = llegar en futuro, con la persona y el número de "van".

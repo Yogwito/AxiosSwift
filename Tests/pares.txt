@@ -68,3 +68,6 @@ P2|donde estan mis naves|dor an kumesh mi ka|ʔaha mar gor ʔen wor
 P2|¿cuántas naves visitaron nuestro planeta?|kai kumesh anir vael dunok ka|ʔoka ʔakesh mar gor thüm ʔenka wak
 # "quién" es el sujeto (R5): no hay otro sujeto; negación en una pregunta; el artículo se descarta.
 P2|¿quién no escuchó el mensaje?|sem ombra nurhuok ka|ʔoka ne ʔanem mar vesh wis
+# "ver" es transitivo (rasgo tr de vocab_es) y no hay otro objeto: "nuestras naves" es el
+# objeto aunque concuerde con el verbo, y el sujeto omitido se repone con ellos (R4).
+P2|¿vieron nuestras naves?|iresh anir kumesh korok ka|ʔoka ʔaʔim mar oruvi gor ʔenka

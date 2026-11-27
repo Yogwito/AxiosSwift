@@ -52,7 +52,7 @@ final class CLITests: XCTestCase {
     func testInicializarCargaElVocabularioEspanol() throws {
         let (cli, bd) = try nuevaCLI()
         let salida = cli.ejecutar(["inicializar"])
-        XCTAssertTrue(salida.contains("Archivo: vocab_es_v0.7.txt\n  tipo: vocab_es\n  versión: 0.7\n  nuevas: 104"), salida)
+        XCTAssertTrue(salida.contains("Archivo: vocab_es_v0.7.txt\n  tipo: vocab_es\n  versión: 0.7\n  nuevas: 116"), salida)
         XCTAssertFalse(salida.contains("Error"), salida)
         XCTAssertEqual(bd.entradasEspanol(forma: "van").first?.lemas, ["ir"])
     }

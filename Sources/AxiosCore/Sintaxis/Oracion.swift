@@ -116,6 +116,12 @@ extension Parser {
         var detras = nucleo.despues
         var sujeto = Sujeto.omitido
         var inversionConPronombre = false
+        // R4: con un verbo transitivo, un nombre solo es sujeto si otro sintagma ya es el
+        // objeto. Sale del rasgo tr de vocab_es; con varios lemas ("fue": ser o ir) tienen
+        // que serlo todos, y sin fila cuenta como intransitivo (solo concordancia).
+        let transitivo = !lecturas.isEmpty && lecturas.allSatisfy {
+            clasificador.transitividad(de: $0.raiz) == .transitivo
+        }
 
         func concuerdan(_ persona: Int, _ plural: Bool) -> [RasgosVerbo] {
             lecturas.filter { $0.persona == persona && $0.plural == plural }
@@ -158,9 +164,13 @@ extension Parser {
                 funcion = .objeto
             case .sujeto:
                 // Sujeto si no hay otro sujeto, no lleva preposición y concuerda con el verbo.
+                // Con nombre ("cuántas naves") y verbo transitivo, además tiene que quedar
+                // otro sintagma detrás para el objeto: "¿Cuántas naves vieron?" pregunta
+                // por el objeto, "¿Cuántas naves visitaron nuestro planeta?" por el sujeto.
                 let plural = i.nombre?.plural ?? i.fila.plural ?? false
                 let validas = concuerdan(Parser.personaNominal, plural)
-                if sujeto == .omitido && !i.conPreposicion && !validas.isEmpty {
+                let dejaObjeto = !transitivo || i.nombre == nil || !detras.isEmpty
+                if sujeto == .omitido && !i.conPreposicion && !validas.isEmpty && dejaObjeto {
                     funcion = .sujeto
                     lecturas = validas
                     sujeto = i.nombre.map { .explicito(SN(nucleo: .sustantivo(lema: $0.lema, plural: $0.plural))) }
@@ -180,12 +190,17 @@ extension Parser {
 
         // R4: si sigue sin sujeto, el primer sintagma de detrás que concuerda lo es
         // ("Llegarán quince naves"); el que no concuerda es el objeto ("Queremos paz").
-        if sujeto == .omitido, let i = detras.firstIndex(where: { !concuerdan($0).isEmpty }) {
+        // Con un verbo transitivo, solo si el objeto ya lo cubre otro sintagma o el
+        // interrogativo: "¿Vieron nuestras naves?" = (ellos) vieron nuestras naves, pero
+        // en "Enviaron las naves un mensaje" el sujeto es "las naves".
+        let interrogativoEsObjeto = interrogativo?.funcion == .objeto
+        let objetoCubierto = detras.count > 1 || objeto != nil || interrogativoEsObjeto
+        if sujeto == .omitido, !transitivo || objetoCubierto,
+           let i = detras.firstIndex(where: { !concuerdan($0).isEmpty }) {
             let nuevo = detras.remove(at: i)
             lecturas = concuerdan(nuevo)
             sujeto = .explicito(nuevo.sn)
         }
-        let interrogativoEsObjeto = interrogativo?.funcion == .objeto
         for sobrante in detras {
             if objeto != nil || interrogativoEsObjeto {
                 throw ErrorSintactico(
