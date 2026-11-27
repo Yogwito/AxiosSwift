@@ -211,6 +211,29 @@ final class VocabEspanolTests: XCTestCase {
         }
     }
 
+    /// Cada verbo del léxico (y cada infinitivo de vocab_es) tiene una fila de
+    /// transitividad con un valor válido del rasgo tr (regla R4), y no hay filas de
+    /// transitividad para palabras que no son verbos.
+    func testCadaVerboDelLexicoDeclaraSuTransitividad() throws {
+        let lexico = try String(contentsOf: archivoDatos("lexico_v0.7.txt"), encoding: .utf8)
+        let verbosLexico = lexico.split(whereSeparator: \.isNewline)
+            .filter { !$0.hasPrefix("#") }
+            .map { $0.split(separator: "|", omittingEmptySubsequences: false).map(String.init) }
+            .filter { $0.count == 4 && $0[3] == "verbo" }
+            .map { BaseDatos.clave($0[0]) }
+        XCTAssertEqual(verbosLexico.count, 11)
+        let filas = try filasDelArchivo()
+        let infinitivos = filas.filter { $0.categoria == "infinitivo" }.map(\.forma)
+        let transitividad = filas.filter { $0.categoria == "transitividad" }
+        for verbo in verbosLexico + infinitivos {
+            let fila = transitividad.first { $0.forma == verbo }
+            XCTAssertNotNil(fila, "falta la fila de transitividad de \(verbo)")
+            XCTAssertTrue(["transitivo", "intransitivo", "copulativo"].contains(fila?.rasgos["tr"] ?? ""), verbo)
+            XCTAssertEqual(fila?.lemas, [verbo])
+        }
+        XCTAssertEqual(Set(transitividad.map(\.forma)), Set(verbosLexico + infinitivos), "solo verbos")
+    }
+
     /// La perífrasis "ir a": su forma es un verbo conocido, su lema una preposición y
     /// sus tiempos t y resultado existen.
     func testLaPerifrasisApuntaAUnVerboYUnaPreposicion() throws {

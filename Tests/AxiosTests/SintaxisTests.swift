@@ -61,6 +61,57 @@ final class SintaxisTests: CasoSintaxis {
         XCTAssertEqual(o.sujeto, .explicito(pronombre("ustedes", 2, true)))
     }
 
+    // MARK: - Verbos transitivos (R4, rasgo tr de vocab_es)
+
+    /// Caso de P4: "vieron" es transitivo y no hay otro objeto, así que "nuestras naves"
+    /// es el objeto aunque concuerde con el verbo, y el sujeto queda omitido (ellos).
+    func testVieronNuestrasNavesTieneSujetoOmitido() throws {
+        XCTAssertEqual(try arbol("¿ Vieron nuestras naves ?"), Oracion(
+            tipo: .preguntaSiNo,
+            sujeto: .omitido,
+            verbo: verbo("ver", 3, true, .pasado),
+            objeto: nombre("nave", plural: true, poseedor: Pronombre(lema: "nosotros", persona: 1, plural: true))
+        ))
+    }
+
+    /// Caso de P4: con verbo transitivo y sin otro objeto, "cuántas naves" pregunta por
+    /// el objeto.
+    func testCuantasNavesVieronPreguntaPorElObjeto() throws {
+        XCTAssertEqual(try arbol("¿ Cuántas naves vieron ?"), Oracion(
+            tipo: .preguntaParcial(Interrogativo(lema: "cuantos", funcion: .objeto)),
+            sujeto: .omitido,
+            verbo: verbo("ver", 3, true, .pasado),
+            objeto: nombre("nave", plural: true)
+        ))
+    }
+
+    /// Con dos sintagmas detrás de un transitivo, el que concuerda es el sujeto: el
+    /// objeto ya lo cubre el otro.
+    func testEnviaronLasNavesUnMensaje() throws {
+        XCTAssertEqual(try arbol("Enviaron las naves un mensaje"), Oracion(
+            tipo: .declarativa,
+            sujeto: .explicito(nombre("nave", plural: true)),
+            verbo: verbo("enviar", 3, true, .pasado),
+            objeto: nombre("mensaje")
+        ))
+    }
+
+    /// Un pronombre de detrás sigue siendo el sujeto antes que "cuántas naves".
+    func testCuantasNavesVieronUstedes() throws {
+        let o = try arbol("¿ Cuántas naves vieron ustedes ?")
+        XCTAssertEqual(o.interrogativo, Interrogativo(lema: "cuantos", funcion: .objeto))
+        XCTAssertEqual(o.sujeto, .explicito(pronombre("ustedes", 2, true)))
+        XCTAssertEqual(o.objeto, nombre("nave", plural: true))
+    }
+
+    /// "esperar" es transitivo en vocab_es. Costo conocido (bitácora): "Esperan las
+    /// naves" se lee como "(ellos) esperan las naves", no como "las naves esperan".
+    func testEsperarEsTransitivo() throws {
+        let o = try arbol("Esperan las naves")
+        XCTAssertEqual(o.sujeto, .omitido)
+        XCTAssertEqual(o.objeto, nombre("nave", plural: true))
+    }
+
     // MARK: - Tipo de oración sin signos (R8)
 
     func testLlegaranQuinceNavesEsDeclarativa() throws {
