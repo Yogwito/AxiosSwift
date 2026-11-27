@@ -48,7 +48,7 @@ final class CorrectorTests: XCTestCase {
     }
 
     func testCorrigeUnVerboConjugado() {
-        XCTAssertEqual(corregido("lelgan"), ["llegan"], "'llegan' no está en el vocabulario: sale de la morfología")
+        XCTAssertEqual(corregido("lelgaron"), ["llegaron"], "'llegaron' no está en el vocabulario: sale de la morfología")
     }
 
     func testCorrigeUnPlural() {
@@ -56,20 +56,27 @@ final class CorrectorTests: XCTestCase {
     }
 
     func testConservaLaColumnaYDevuelveLasCorrecciones() {
-        let r = Corrector(lexicon: bdConVocabularioEspanol).corregir(lexicos("¿kuando lelgan?"))
-        XCTAssertEqual(r.tokens.map(\.texto), ["¿", "cuando", "llegan", "?", ""])
-        XCTAssertEqual(r.tokens.map(\.columna), [1, 2, 9, 15, 16])
+        let r = Corrector(lexicon: bdConVocabularioEspanol).corregir(lexicos("¿kuando lelgaron?"))
+        XCTAssertEqual(r.tokens.map(\.texto), ["¿", "cuando", "llegaron", "?", ""])
+        XCTAssertEqual(r.tokens.map(\.columna), [1, 2, 9, 17, 18])
         XCTAssertEqual(r.correcciones, [
             Correccion(original: "kuando", corregida: "cuando", distancia: 1),
-            Correccion(original: "lelgan", corregida: "llegan", distancia: 2),
+            Correccion(original: "lelgaron", corregida: "llegaron", distancia: 2),
         ])
     }
 
     func testLaFraseCorregidaLaEntiendeElSintactico() {
-        let r = Corrector(lexicon: bdConVocabularioEspanol).corregir(lexicos("¿kuando lelgan?"))
+        let r = Corrector(lexicon: bdConVocabularioEspanol).corregir(lexicos("¿kuando lelgaron?"))
         guard case .success = AnalizadorSintactico(lexicon: bdConVocabularioEspanol).analizar(r.tokens) else {
             return XCTFail("tras corregir, la frase debe ser válida")
         }
+    }
+
+    func testNoCambiaUnaPalabraDesconocidaPorOtraQueNoSignificaLoMismo() {
+        // "tener" no está en los datos; antes salía "tienen → venen" (distancia 2 en 6 letras).
+        let r = Corrector(lexicon: bdConVocabularioEspanol).corregir(lexicos("¿tienen telescopio?"))
+        XCTAssertEqual(r.tokens.map(\.texto), ["¿", "tienen", "telescopio", "?", ""])
+        XCTAssertTrue(r.correcciones.isEmpty)
     }
 
     func testPalabraMuyDistintaNoSeCorrige() {
@@ -79,9 +86,10 @@ final class CorrectorTests: XCTestCase {
     }
 
     func testUmbralSegunLaLongitud() {
-        let corrector = Corrector(lexicon: LexiconFalso(vocabulario: ["mensaje", "paz"]))
+        let corrector = Corrector(lexicon: LexiconFalso(vocabulario: ["mensaje", "paz", "llegan"]))
         XCTAssertEqual(corrector.correccion(de: "mensjae")?.corregida, "mensaje", "7 letras: hasta 2 cambios")
         XCTAssertNil(corrector.correccion(de: "mnsjae"), "3 cambios es demasiado")
+        XCTAssertNil(corrector.correccion(de: "lelgan"), "6 letras: solo 1 cambio")
         XCTAssertEqual(corrector.correccion(de: "pax")?.corregida, "paz", "3 letras: hasta 1 cambio")
         XCTAssertNil(corrector.correccion(de: "pz"), "2 letras o menos no se corrigen")
     }
