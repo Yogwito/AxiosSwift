@@ -54,9 +54,10 @@ public struct Corrector {
         return Correccion(original: palabra, corregida: elegidas[0], distancia: mejor)
     }
 
-    /// Cambios permitidos según la longitud: 2 letras o menos, ninguno; hasta 4, uno; más, dos.
+    /// Cambios permitidos según la longitud: 2 letras o menos, ninguno; hasta 6, uno; más, dos.
+    /// Dos cambios en una palabra corta ya es otra palabra ("tienen" no es "venen").
     static func umbral(_ longitud: Int) -> Int {
-        longitud <= 2 ? 0 : (longitud <= 4 ? 1 : 2)
+        longitud <= 2 ? 0 : (longitud <= 6 ? 1 : 2)
     }
 
     /// El vocabulario más las formas conjugadas y los plurales que terminan como la
