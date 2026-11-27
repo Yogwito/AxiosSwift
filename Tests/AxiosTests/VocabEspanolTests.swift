@@ -83,16 +83,16 @@ final class VocabEspanolTests: XCTestCase {
         XCTAssertEqual(r.version, "0.7")
         XCTAssertEqual(r.errores, [])
         XCTAssertEqual(r.omitidas, 0)
-        XCTAssertEqual(r.nuevas, 104)
-        XCTAssertEqual(try bd.contarFilas("vocab_es"), 104)
+        XCTAssertEqual(r.nuevas, 116)
+        XCTAssertEqual(try bd.contarFilas("vocab_es"), 116)
     }
 
     func testRecargarVocabEsEsIdempotente() throws {
         let bd = try bdConVocabulario()
         let r = try bd.cargar(archivo: archivoDatos("vocab_es_v0.7.txt"))
         XCTAssertEqual(r.nuevas, 0)
-        XCTAssertEqual(r.omitidas, 104)
-        XCTAssertEqual(try bd.contarFilas("vocab_es"), 104)
+        XCTAssertEqual(r.omitidas, 116)
+        XCTAssertEqual(try bd.contarFilas("vocab_es"), 116)
     }
 
     func testEntradasEspanolIgnoraTildes() throws {
