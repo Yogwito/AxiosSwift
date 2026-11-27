@@ -59,6 +59,13 @@ enum FormatoSintaxis {
     static let funcion = "f"
     static let tiempo = "t"
     static let resultado = "resultado"
+    static let transitividad = "transitividad"
+    static let rasgoTransitividad = "tr"
+}
+
+/// Valores del rasgo tr de vocab_es (regla R4).
+enum Transitividad: String {
+    case transitivo, intransitivo, copulativo
 }
 
 extension EntradaVocab {
@@ -106,6 +113,14 @@ struct Clasificador {
     /// Filas de perífrasis cuyo verbo es `lema` ("ir" → ir|a|perifrasis|...).
     func perifrasis(de lema: String) -> [EntradaVocab] {
         lexicon.entradasEspanol(forma: lema).filter { $0.categoria == FormatoSintaxis.perifrasis }
+    }
+
+    /// Transitividad de un verbo según su fila de vocab_es, o nil si no la declara.
+    func transitividad(de lema: String) -> Transitividad? {
+        lexicon.entradasEspanol(forma: lema)
+            .first { $0.categoria == FormatoSintaxis.transitividad }?
+            .rasgos[FormatoSintaxis.rasgoTransitividad]
+            .flatMap(Transitividad.init(rawValue:))
     }
 
     /// El pronombre personal de un lema ("nosotros"), para los poseedores (R11).
