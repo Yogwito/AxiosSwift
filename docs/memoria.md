@@ -321,7 +321,7 @@ español, con una distancia de Levenshtein propia.
 ```
 corregir(palabra):
     si está en el vocabulario o la morfología la reconoce → no se toca
-    umbral ← 0 si tiene ≤ 2 letras, 1 si tiene ≤ 4, 2 si tiene más
+    umbral ← 0 si tiene ≤ 2 letras, 1 si tiene ≤ 6, 2 si tiene más
     candidatas ← vocabulario + formas generadas que la morfología reconoce
     elegir la candidata a menor distancia
     si la distancia > umbral o hay empate → no se corrige
@@ -333,14 +333,17 @@ corregir(palabra):
 - **Formas generadas:** las formas regulares ("llegan", "naves") no están en
   `vocabularioEspanol()` porque la morfología las analiza. Para cada final de la palabra
   que sea una terminación de `vocab_es` se prueban los verbos y sustantivos conocidos con
-  ese final: "lelgan" termina en "-an", así que se prueba "llegan" (llegar + -an), y gana
-  con distancia 2.
+  ese final: "lelgaron" termina en "-aron", así que se prueba "llegaron" (llegar + -aron),
+  y gana con distancia 2.
+- **Umbral según la longitud:** dos cambios en una palabra corta ya la convierten en otra.
+  Por eso "tienen" (6 letras, "tener" no está en los datos) no se cambia por "venen"
+  (distancia 2): se deja igual y el sintáctico la rechaza como desconocida.
 - **No altera palabras válidas:** antes de buscar candidatas se pregunta a
   `Morfologia.reconoce`, así "vendrán", "fue" o "enviaron" no se tocan.
 - **Si no sabe, no cambia nada:** una palabra muy distinta o con dos candidatas a la
   misma distancia se deja igual, y el analizador sintáctico la rechaza como desconocida.
 - Cada token corregido conserva su columna. `Corrector.texto(_:)` da la línea de la
-  traza: `kuando → cuando (1) · lelgan → llegan (2)`.
+  traza: `kuando → cuando (1) · lelgaron → llegaron (2)`.
 
 ## Morfología
 

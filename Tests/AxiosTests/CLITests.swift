@@ -299,7 +299,7 @@ final class CLITests: XCTestCase {
         }
         let motivos = bd.preguntas(desde: nil).map(\.motivo)
         XCTAssertNil(motivos[0])
-        XCTAssertTrue(motivos[2]?.contains("telescopio") ?? false, "\(motivos)")
+        XCTAssertTrue(motivos[2]?.contains("palabra desconocida") ?? false, "\(motivos)")
         XCTAssertEqual(motivos[3], "pregunta vacía")
     }
 
