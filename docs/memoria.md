@@ -85,11 +85,25 @@ función tiene cada sintagma y cómo se llena el árbol.
   (3) el interrogativo (R5); (4) un **nombre** de detrás que concuerde. Así en
   "¿Cuántos ciclos esperarán ustedes?" el sujeto es *ustedes* (y "cuántos ciclos" el
   objeto), y en "¿Quién envió el mensaje?" es *quién* (y "el mensaje" el objeto).
+  **Verbos transitivos.** La transitividad de cada verbo es un dato: el rasgo `tr` de
+  su fila `transitividad` en `vocab_es` (`ver|ver|transitividad|tr=transitivo`). Con un
+  verbo transitivo, los candidatos **nominales** de los pasos (3) y (4) ("cuántos" con
+  nombre, o un nombre de detrás) solo son sujeto si el objeto ya está cubierto por otro
+  sintagma de detrás o por un interrogativo de objeto; si no, son el objeto y el sujeto
+  queda omitido. "¿Vieron nuestras naves?" → S: omitido (ellos) · O: nuestras naves;
+  "Enviaron las naves un mensaje" → S: las naves · O: un mensaje. Los pronombres y los
+  interrogativos sin nombre ("quién") no cambian. Los verbos intransitivos (llegar,
+  venir, hablar, ir) y copulativos (ser, estar) deciden solo por concordancia ("Llegarán
+  15 naves", "¿Dónde están mis naves?"). Si una forma tiene varios lemas ("fue"), tienen
+  que ser todos transitivos; un verbo sin fila cuenta como intransitivo. "esperar" está
+  marcado como transitivo, así que "Esperan las naves" se lee "(ellos) esperan las naves".
 - **R5. Función del interrogativo**, según el rasgo `f` de `vocab_es`:
   `f=circunstancial` (cuándo, dónde) → circunstancial; `f=objeto` (qué) → objeto;
   `f=sujeto` (quién, cuántos) → sujeto si no hay otro sujeto, no lleva `PREP` delante y
   concuerda con el verbo, y si no, objeto. "¿Quién envió el mensaje?" → sujeto;
-  "¿A quién escuchan ustedes?" → objeto; "¿Cuántas naves llegaron?" → sujeto. Para
+  "¿A quién escuchan ustedes?" → objeto; "¿Cuántas naves llegaron?" → sujeto;
+  "¿Cuántas naves vieron?" → objeto, porque "ver" es transitivo y no hay otro objeto
+  (R4). Para
   concordar, el interrogativo es 3.ª persona con el número de su nombre ("cuántas naves")
   o, si no lleva, el de su rasgo `n` (quién: singular). Con `f=objeto` y un nombre detrás,
   ese nombre es el objeto ("¿Cuántos ciclos…?"); los circunstanciales no llevan nombre.
@@ -129,6 +143,8 @@ función tiene cada sintagma y cómo se llena el árbol.
 | ¿Quién envió el mensaje? | sint-interrog(quien) · nucleo(sv, sn) | parcial(quien, sujeto) · S: interrogativo · O: mensaje (R5) |
 | Ellos no van a llegar | nucleo(sn, sv(NEG, VERBO_PERIF PREP INF)) | V: llegar 3pl futuro (ir a) negativa (R9, R10) |
 | Ellos visitaron nuestro mundo | nucleo(sn, sv, sn(POS, SUST)) | O: mundo de(nosotros) (R11) |
+| ¿Vieron nuestras naves? | SIGNO · nucleo(sv, sn(POS, SUST)) · SIGNO | pregunta sí/no · S: omitido · V: ver 3pl pasado · O: nave+pl de(nosotros) (R4: ver es transitivo) |
+| ¿Cuántas naves vieron? | SIGNO · sint-interrog(cuantos, naves) · nucleo(sv) · SIGNO | parcial(cuantos, objeto) · S: omitido · O: nave+pl (R4, R5) |
 
 ### Implementación
 
@@ -344,6 +360,7 @@ irregular se arregla con una fila de datos.
 | `raiz_excluida` | `ven-\|venir\|raiz_excluida\|t=pasado` | Raíz regular que el verbo no usa en ese tiempo |
 | `verbo` | `fue\|ser,ir\|verbo\|p=3;n=sg;t=pasado` | Forma supletiva: se toma entera |
 | `infinitivo` | `ir\|ir\|infinitivo\|` | Verbo sin traducción propia en el léxico |
+| `transitividad` | `ver\|ver\|transitividad\|tr=transitivo` | Si el verbo pide objeto: `transitivo`, `intransitivo` o `copulativo` (regla R4). Una fila por cada verbo del léxico y por `ir` |
 | `terminacion_plural` | `-ces\|z\|terminacion_plural\|n=pl` | Plural de los sustantivos (el lema es lo que se repone) |
 
 `base=infinitivo` indica que la terminación va pegada al infinitivo entero (el futuro:
